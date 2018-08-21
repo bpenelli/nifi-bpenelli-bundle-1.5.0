@@ -1,0 +1,3 @@
+org\bpenelli\nifi\services\HBaseMapCacheClientService$HBaseRowHandler.class
+org\bpenelli\nifi\services\HBaseMapCacheClientService.class
+org\bpenelli\nifi\services\HBaseMapCacheClientService$1.class
