@@ -102,7 +102,7 @@ public class HBaseSequence extends AbstractProcessor {
         .description("The name of the attribute on the FlowFile to write the next Sequence value to.")
         .required(true)
         .expressionLanguageSupported(true)
-        .defaultValue("auto.increment")
+        .defaultValue("sequence.value")
         .addValidator(StandardValidators.ATTRIBUTE_KEY_VALIDATOR)
         .build();
 

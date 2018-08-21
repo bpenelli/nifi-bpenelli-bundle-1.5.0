@@ -18,4 +18,4 @@ org.bpenelli.nifi.processors.GoldenGateToSQL
 org.bpenelli.nifi.processors.GoldenGateMergeViews
 org.bpenelli.nifi.processors.Hold
 org.bpenelli.nifi.processors.Release
-org.bpenelli.nifi.processors.AutoIncrement
+org.bpenelli.nifi.processors.HBaseSequence
