@@ -169,6 +169,7 @@ public class HBaseSequence extends AbstractProcessor {
     	FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
+        // Get property values.
         String seqName = context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue();
         String startNo = context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue();
         long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
@@ -193,21 +194,27 @@ public class HBaseSequence extends AbstractProcessor {
 		
 		try {
 			if (hbaseService.containsKey(seqName, stringSerializer)) {
+				// Read the current sequence value.
 				String currentValue = hbaseService.get(seqName, stringSerializer, stringDeserializer);
+				// Increment the value by the amount of the supplied increment.
 				String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
+				// Only save if the value hasn't changed since it was read.
 				if (hbaseService.checkAndPut(seqName, newValue, currentValue, stringSerializer, stringSerializer)) {
 					flowFile = session.putAttribute(flowFile, outAttr, newValue);
 					session.transfer(flowFile, REL_SUCCESS);
 					session.commit();
 				} else {
+					// Rolling back will put the FlowFile back on the queue to be tried again.
 					session.rollback();
 				}
 			} else {
+				// The sequence doesn't exist, so add it with the supplied starting value.
 				if (hbaseService.putIfAbsent(seqName, startNo, stringSerializer, stringSerializer)) {
 					flowFile = session.putAttribute(flowFile, outAttr, startNo);
 					session.transfer(flowFile, REL_SUCCESS);
 					session.commit();
 				} else {
+					// Rolling back will put the FlowFile back on the queue to be tried again.
 					session.rollback();	
 				}
 			}
