@@ -65,7 +65,7 @@ public class GoGetterTest {
 
         // Test attributes and content
         result.assertAttributeEquals("test.result", "Good!");
-        result.assertContentEquals("{\"test.result\":\"Hello World!\",\"test.no\":21020}");
+        result.assertContentEquals("{\"test.no\":21020,\"test.result\":\"Hello World!\"}");
     }
 
 }

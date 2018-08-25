@@ -36,6 +36,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
@@ -205,6 +207,7 @@ public class GoGetter extends AbstractProcessor {
             // Transfer the FlowFile to success.
             session.transfer(flowFile, REL_SUCCESS);
         } catch (Exception e) {
+        	e.printStackTrace();
             String msg = e.getMessage();
             if (msg == null) msg = e.toString();
             getLogger().error(msg);
@@ -246,11 +249,11 @@ public class GoGetter extends AbstractProcessor {
     	@SuppressWarnings("rawtypes")
 		public static void get (Map<String, Object> gogMap, String gogKey, ProcessSession session,
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
-    		Map<String, Object> valueMap = new HashMap<String, Object>();
+    		Map<String, Object> valueMap = new TreeMap<String, Object>();
     		for (String key : gogMap.keySet()) {
     			Object expression = gogMap.get(key); 
 	            String result = "";
-	            String defaultValue = "";
+	            String defaultValue = null;
 	            if (expression instanceof Map) {
 	            	Object value = ((Map) expression).get("value");
 	            	if (value == null) {
@@ -258,7 +261,10 @@ public class GoGetter extends AbstractProcessor {
 	            		continue;
 	            	}
 	                result = goGetter.evaluateExpression(context, flowFile, value.toString());
-	                if (((Map) expression).containsKey("default")) defaultValue = ((Map) expression).get("default").toString();
+	                if (((Map) expression).containsKey("default")) {
+	                	Object itemDefault = ((Map) expression).get("default");
+	                	if (itemDefault != null) defaultValue = itemDefault.toString();
+	                }
 	                String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
 	                switch (valType) {
 	                    case "CACHE_KEY":
