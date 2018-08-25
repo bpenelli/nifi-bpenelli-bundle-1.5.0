@@ -251,8 +251,13 @@ public class GoGetter extends AbstractProcessor {
     			Object expression = gogMap.get(key); 
 	            String result = "";
 	            String defaultValue = "";
-	            if (expression instanceof Map) {             
-	                result = goGetter.evaluateExpression(context, flowFile, ((Map) expression).get("value").toString());
+	            if (expression instanceof Map) {
+	            	Object value = ((Map) expression).get("value");
+	            	if (value == null) {
+	            		valueMap.put(key, null);
+	            		continue;
+	            	}
+	                result = goGetter.evaluateExpression(context, flowFile, value.toString());
 	                if (((Map) expression).containsKey("default")) defaultValue = ((Map) expression).get("default").toString();
 	                String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
 	                switch (valType) {
@@ -296,11 +301,15 @@ public class GoGetter extends AbstractProcessor {
 	                        break;
 	                }                
 	            } else {
-	                result = evaluateExpression(context, flowFile, (String)expression);
+	            	if (expression == null) {
+	            		valueMap.put(key, null);
+	            		continue;
+	            	}
+	                result = goGetter.evaluateExpression(context, flowFile, (String)expression);
 	            }
 	            
 	            // Add the result to our value map.
-	            if (expression instanceof Map && ((Map) expression).containsKey("to-type")) {
+	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
 	            	String newType = (String)((Map) expression).get("to-type");
 	            	switch (newType) {
 		            	case "int" : 

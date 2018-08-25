@@ -23,7 +23,6 @@
     </parent>
 
     <artifactId>nifi-bpenelli-processors-nar</artifactId>
-    <version>1.5.0</version>
     <packaging>nar</packaging>
     <properties>
         <maven.javadoc.skip>true</maven.javadoc.skip>
