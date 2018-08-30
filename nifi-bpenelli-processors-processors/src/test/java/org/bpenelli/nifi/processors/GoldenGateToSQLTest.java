@@ -25,9 +25,6 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import static org.junit.Assert.*;
 
-///////////////////////////////////////////////////////////////
-/// GoldenGateToSQLTest Class
-///////////////////////////////////////////////////////////////
 public class GoldenGateToSQLTest {
 
     /**
@@ -69,37 +66,34 @@ public class GoldenGateToSQLTest {
     	trail.append("}");
 
     	
-        // Content to be mock a json file
+        // Add content.
         InputStream content = new ByteArrayInputStream(trail.toString().getBytes());
 
-        // Generate a test runner to mock a processor in a flow
+        // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new GoldenGateToSQL());
 
         runner.setValidateExpressionUsage(false);
 
-        // Add properties
+        // Add properties.
         runner.setProperty(GoldenGateToSQL.FORMAT, "JSON");
         runner.setProperty(GoldenGateToSQL.TO_CASE, "Lower");
         runner.setProperty(GoldenGateToSQL.SCHEMA, "gg");
         
-        // Add the content to the runner
+        // Add the content to the runner.
         runner.enqueue(content);
 
-        // Run the enqueued content, it also takes an int = number of contents queued
+        // Run the enqueued content, it also takes an int = number of contents queued.
         runner.run(1);
 
-        // All results were processed with out failure
+        // All results were processed with out failure.
         runner.assertQueueEmpty();
 
-        // If you need to read or do additional tests on results you can access the content
+        // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoldenGateToSQL.REL_SUCCESS);
         assertTrue("1 match", results.size() == 1);
         MockFlowFile result = results.get(0);
-        //String resultValue = new String(runner.getContentAsByteArray(result));
-        //System.out.println("Match: " + IOUtils.toString(runner.getContentAsByteArray(result)));
 
-        // Test attributes and content
-        // result.assertAttributeEquals("test.result", "Hello World!");
+        // Test attributes and content.
         result.assertContentEquals("UPDATE gg.mytable SET name = 'Name After Update', zd_sync = 'SYNCED' WHERE pk1_id = '1' AND pk2_id = '2' AND pk3_id = '3'");
     }
 

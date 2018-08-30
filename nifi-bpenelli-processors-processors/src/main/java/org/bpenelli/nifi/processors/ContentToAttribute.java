@@ -45,14 +45,12 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
-///////////////////////////////////////////////////////////////
-/// ContentToAttribute Class
-///////////////////////////////////////////////////////////////
 @Tags({"content, flowfile, attribute, extract, bpenelli"})
 @CapabilityDescription("Extracts the contents of a FlowFile to a named attribute.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
+
 public class ContentToAttribute extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()

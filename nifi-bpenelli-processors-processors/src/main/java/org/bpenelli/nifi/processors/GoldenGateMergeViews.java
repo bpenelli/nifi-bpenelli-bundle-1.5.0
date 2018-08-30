@@ -51,14 +51,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 
-///////////////////////////////////////////////////////////////
-/// GoldenGateMergeViews Class
-///////////////////////////////////////////////////////////////
 @Tags({"goldengate, merge, trail, json, bpenelli"})
 @CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and outputs it as JSON.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
+
 public class GoldenGateMergeViews extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()

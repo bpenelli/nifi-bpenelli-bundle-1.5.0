@@ -31,7 +31,6 @@ import java.sql.Clob;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -66,9 +65,6 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 
-///////////////////////////////////////////////////////////////
-/// GoGetter Class
-///////////////////////////////////////////////////////////////
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and builds a JSON object in the FlowFile's content based on a GOG configuration.")
 @SeeAlso({})

@@ -27,9 +27,6 @@ import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 
-///////////////////////////////////////////////////////////////
-/// GoldenGateMergeViewsTest Class
-///////////////////////////////////////////////////////////////
 public class GoldenGateMergeViewsTest {
 
     /**
@@ -71,37 +68,35 @@ public class GoldenGateMergeViewsTest {
     	trail.append("}");
 
     	
-        // Content to be mock a json file
+        // Add content.
         InputStream content = new ByteArrayInputStream(trail.toString().getBytes());
 
-        // Generate a test runner to mock a processor in a flow
+        // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new GoldenGateMergeViews());
 
         runner.setValidateExpressionUsage(false);
 
-        // Add properties
+        // Add properties.
         runner.setProperty(GoldenGateMergeViews.FORMAT, "JSON");
         runner.setProperty(GoldenGateMergeViews.TO_CASE, "Lower");
         runner.setProperty(GoldenGateMergeViews.SCHEMA, "gg_test");
         runner.setProperty(GoldenGateMergeViews.GG_FIELDS, "table, op_type, op_ts, pos");
         
-        // Add the content to the runner
+        // Add the content to the runner.
         runner.enqueue(content);
 
-        // Run the enqueued content, it also takes an int = number of contents queued
+        // Run the enqueued content, it also takes an int = number of contents queued.
         runner.run(1);
 
-        // All results were processed with out failure
+        // All results were processed with out failure.
         runner.assertQueueEmpty();
 
-        // If you need to read or do additional tests on results you can access the content
+        // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoldenGateMergeViews.REL_SUCCESS);
         assertTrue("1 match", results.size() == 1);
         MockFlowFile result = results.get(0);
-        //String resultValue = new String(runner.getContentAsByteArray(result));
-        //System.out.println("Match: " + IOUtils.toString(runner.getContentAsByteArray(result)));
 
-        // Test attributes and content
+        // Test attributes and content.
         // result.assertAttributeEquals("test.result", "Hello World!");
         result.assertContentEquals("{\"created_by\":1156,\"creation_date\":\"2017-09-19 11:16:25\",\"last_update_date\":\"2017-09-22 10:56:35\",\"last_update_login\":333912,\"last_updated_by\":1433,\"name\":\"Name After Update\",\"pk1_id\":1,\"pk2_id\":2,\"pk3_id\":3,\"source_lang\":\"US\",\"table\":\"gg_test.mytable\",\"zd_sync\":\"SYNCED\"}");
     }

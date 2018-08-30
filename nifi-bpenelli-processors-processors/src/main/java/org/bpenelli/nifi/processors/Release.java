@@ -45,14 +45,12 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 
-///////////////////////////////////////////////////////////////
-/// Hold Class
-///////////////////////////////////////////////////////////////
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Releases the Hold on a given topic and key.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
+
 public class Release extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()

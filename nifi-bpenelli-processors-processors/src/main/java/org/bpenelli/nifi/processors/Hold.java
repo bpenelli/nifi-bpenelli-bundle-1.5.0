@@ -45,14 +45,12 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 
-///////////////////////////////////////////////////////////////
-/// Hold Class
-///////////////////////////////////////////////////////////////
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Allows one FlowFile through for a given topic and key, and holds up the remaining FlowFiles for the same topic and key, until the first one is released through a companion Release processor.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
+
 public class Hold extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()

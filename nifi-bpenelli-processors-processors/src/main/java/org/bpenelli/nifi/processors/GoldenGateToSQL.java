@@ -48,14 +48,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-///////////////////////////////////////////////////////////////
-/// GoldenGateToSQL Class
-///////////////////////////////////////////////////////////////
 @Tags({"goldengate, sql, trail, json, bpenelli"})
 @CapabilityDescription("Parses an Oracle GoldenGate trail file and builds a corresponding SQL statement.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
+
 public class GoldenGateToSQL extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
