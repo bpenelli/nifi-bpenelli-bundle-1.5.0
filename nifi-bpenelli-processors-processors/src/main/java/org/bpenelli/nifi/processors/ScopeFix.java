@@ -18,4 +18,5 @@ package org.bpenelli.nifi.processors;
 
 public class ScopeFix {
 	public String content = "";
+	public Object objectData = null;
 }

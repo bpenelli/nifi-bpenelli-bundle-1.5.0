@@ -180,26 +180,11 @@ public class ConvertJSONToCSV extends AbstractProcessor {
         session.read(flowFile, new InputStreamCallback() {
         	@Override
             public void process(final InputStream inputStream) throws IOException {
-        		sf.content = IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8);
+        		sf.objectData = new JsonSlurper().setType(LAX).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
         	}
         });
                 
         Map<String, Object> schemaData = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(schema);
-        Object jsonData = new JsonSlurper().setType(LAX).parseText(sf.content);
-        ArrayList<Map<String, Object>> jsonRecords = new ArrayList<Map<String, Object>>();
-        
-        if (jsonData instanceof Map) {
-        	jsonRecords.add((Map<String, Object>) jsonData);
-        } else if (jsonData instanceof ValueList) {
-        	for (Object item : (ValueList) jsonData) {
-        		if (item instanceof Map) {
-        			jsonRecords.add((Map<String, Object>) item);
-        		} else if (item instanceof String && isDF) {
-        			Map<String, Object> record = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(item.toString());
-        			jsonRecords.add(record);
-        		}
-        	}
-        }
         
         final StringBuilder csv = new StringBuilder();
         boolean isFirstLine = true;
@@ -222,7 +207,14 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	        }
 	        
 	        // Add CSV data lines.
-	        for (Map<String, Object> record : jsonRecords) {
+        	while (((ValueList) sf.objectData).size() > 0) {
+	        	Object rawRecord = ((ValueList) sf.objectData).get(0);
+	        	Map<String, Object> record = null; 
+	        	if (rawRecord instanceof String && isDF) {
+        			record = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(rawRecord.toString());
+        		} else {	        	
+        			record = (Map<String, Object>) rawRecord;
+        		}
 	    		if (!isFirstLine) csv.append("\n");
 	        	isFirstCol = true;
 	        	for (Object item : (ValueList) schemaData.get("fields")) {
@@ -241,6 +233,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 		    		isFirstCol = false;
 	        	}
 	            isFirstLine = false;
+	            ((ValueList) sf.objectData).remove(rawRecord);
 	        }
 	        
 	        // Write CSV to the FlowFile's content.
