@@ -206,7 +206,6 @@ public class GoGetter extends AbstractProcessor {
         	e.printStackTrace();
             String msg = e.getMessage();
             if (msg == null) msg = e.toString();
-            getLogger().error(msg);
             flowFile = session.putAttribute(flowFile, "gog.error", msg);
             // Transfer the FlowFile to failure.
             session.transfer(flowFile, REL_FAILURE);
@@ -314,16 +313,19 @@ public class GoGetter extends AbstractProcessor {
 	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
 	            	String newType = (String)((Map) expression).get("to-type");
 	            	switch (newType) {
-		            	case "int" : 
+		            	case "int": 
 		            		valueMap.put(key, Integer.parseInt(result));
 		            		break;
-		            	case "long" : 
+		            	case "long": 
 		            		valueMap.put(key, Long.parseLong(result));
 		            		break;
-		            	case "decimal" :
+		            	case "float":
 		            		valueMap.put(key, Float.parseFloat(result));
 		            		break;
-		            	default:
+		            	case "decimal": case "double": 
+		            		valueMap.put(key, Double.parseDouble(result));
+		            		break;
+		            	case "string": default:
 		            		valueMap.put(key, result);
 		            		break;
 	            	}

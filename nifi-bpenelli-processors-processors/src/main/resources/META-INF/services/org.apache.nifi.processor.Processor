@@ -20,3 +20,4 @@ org.bpenelli.nifi.processors.Hold
 org.bpenelli.nifi.processors.Release
 org.bpenelli.nifi.processors.HBaseSequence
 org.bpenelli.nifi.processors.XMLToAttributes
+org.bpenelli.nifi.processors.ConvertJSONToCSV
