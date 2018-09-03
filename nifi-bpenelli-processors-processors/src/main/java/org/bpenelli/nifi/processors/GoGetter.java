@@ -36,6 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.xml.ws.soap.Addressing;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
@@ -66,20 +69,21 @@ import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
-@CapabilityDescription("Retrieves values and builds a JSON object in the FlowFile's content based on a GOG configuration.")
+@CapabilityDescription("Retrieves values and builds a JSON object in the FlowFile's content based on a GOG configuration. " +
+	"Values can be optionally retrieved from a cache, using key, or database, using SQL.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="gog.error", description="The execution error message for FlowFiles routed to failure.")})
+@WritesAttributes({@WritesAttribute(attribute="gog.error", description="The exception message for FlowFiles routed to failure.")})
 public class GoGetter extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
-		.description("FlowFiles that were successfully processed")
+		.description("Any FlowFile that is successfully processed")
 		.build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("FlowFiles with GoGetter execution errors")
+		.description("Any FlowFile with an exception")
 		.build();
 
     public static final PropertyDescriptor GOG_TEXT = new PropertyDescriptor.Builder()
@@ -167,10 +171,11 @@ public class GoGetter extends AbstractProcessor {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
-        String gogAtt = context.getProperty(GOG_ATTRIBUTE).evaluateAttributeExpressions(flowFile).getValue();
-        String gogText = context.getProperty(GOG_TEXT).evaluateAttributeExpressions(flowFile).getValue();
-        DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
-        DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
+        final String gogAtt = context.getProperty(GOG_ATTRIBUTE).evaluateAttributeExpressions(flowFile).getValue();
+        final String gogText = context.getProperty(GOG_TEXT).evaluateAttributeExpressions(flowFile).getValue();
+        final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
+        final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
+
         String gogConfig = "";
 
         // Get the GOG configuration JSON.
@@ -179,60 +184,62 @@ public class GoGetter extends AbstractProcessor {
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
             gogConfig = flowFile.getAttribute(gogAtt);
         } else {
-        	ScopeFix sf = new ScopeFix();
+        	final AtomicReference<String> content = new AtomicReference<String>();
             session.read(flowFile, new InputStreamCallback() {
             	@Override
                 public void process(final InputStream inputStream) throws IOException {
-            		sf.content = IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8);
+            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
             	}
             });
-            gogConfig = sf.content;
+            gogConfig = content.get();
         }
 
-        Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
+        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
         
         try {
-            if (gog.containsKey("extract-to-json")) {
+            
+        	if (gog.containsKey("extract-to-json")) {
             	goGetter.get((Map)gog.get("extract-to-json"), "extract-to-json", session, 
             			context, flowFile, cacheService, dbcpService);
             }
-            if (gog.containsKey("extract-to-attributes")) {
+            
+        	if (gog.containsKey("extract-to-attributes")) {
             	goGetter.get((Map)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
             			context, flowFile, cacheService, dbcpService);
             }
-            // Transfer the FlowFile to success.
+            
+        	// Transfer the FlowFile to success.
             session.transfer(flowFile, REL_SUCCESS);
+            
         } catch (Exception e) {
         	e.printStackTrace();
             String msg = e.getMessage();
             if (msg == null) msg = e.toString();
             flowFile = session.putAttribute(flowFile, "gog.error", msg);
-            // Transfer the FlowFile to failure.
             session.transfer(flowFile, REL_FAILURE);
+        	getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
         }
-    
-        session.commit();
-        
     }
 
     ///////////////////////////////////////////////////////////////
     /// goGetter Class
     ///////////////////////////////////////////////////////////////
     private static class goGetter { 
-        private static Serializer<String> stringSerializer = new Serializer<String>() {
+        
+    	final private static Serializer<String> stringSerializer = new Serializer<String>() {
         	@Override
         	public void serialize(String stringValue, OutputStream out)
         			throws SerializationException, IOException {
         		out.write(stringValue.getBytes(StandardCharsets.UTF_8));
         	}
 		};
-        private static Deserializer<String> stringDeserializer = new Deserializer<String>() {
+        final private static Deserializer<String> stringDeserializer = new Deserializer<String>() {
         	@Override
         	public String deserialize(byte[] bytes) throws DeserializationException, IOException {
         		return new String(bytes);
         	}	                        	
 		};
-        private static String evaluateExpression(final ProcessContext context, final FlowFile flowFile, final String expression) {
+        final private static String evaluateExpression(final ProcessContext context, final FlowFile flowFile, final String expression) {
             PropertyValue newPropVal = context.newPropertyValue(expression);
             String result = newPropVal.evaluateAttributeExpressions(flowFile).getValue();
             return result;
@@ -242,11 +249,11 @@ public class GoGetter extends AbstractProcessor {
          * get
          **************************************************************/
     	@SuppressWarnings("rawtypes")
-		public static void get (Map<String, Object> gogMap, String gogKey, ProcessSession session,
+		final public static void get (Map<String, Object> gogMap, String gogKey, ProcessSession session,
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
-    		Map<String, Object> valueMap = new TreeMap<String, Object>();
-    		for (String key : gogMap.keySet()) {
-    			Object expression = gogMap.get(key); 
+    		final Map<String, Object> valueMap = new TreeMap<String, Object>();
+    		for (final String key : gogMap.keySet()) {
+    			final Object expression = gogMap.get(key); 
 	            String result = "";
 	            String defaultValue = null;
 	            if (expression instanceof Map) {
@@ -257,10 +264,10 @@ public class GoGetter extends AbstractProcessor {
 	            	}
 	                result = goGetter.evaluateExpression(context, flowFile, value.toString());
 	                if (((Map) expression).containsKey("default")) {
-	                	Object itemDefault = ((Map) expression).get("default");
+	                	final Object itemDefault = ((Map) expression).get("default");
 	                	if (itemDefault != null) defaultValue = itemDefault.toString();
 	                }
-	                String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
+	                final String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
 	                switch (valType) {
 	                    case "CACHE_KEY":
 	                        // Get the value from a cache source.
@@ -278,7 +285,7 @@ public class GoGetter extends AbstractProcessor {
 	                            sql = new Sql(conn);
 	                            GroovyRowResult row = sql.firstRow(result);
 	                            if (row != null) {
-	                                Object col = row.getAt(0);
+	                                final Object col = row.getAt(0);
 	                                if (col instanceof Clob) {
 	                                    Reader stream = ((Clob)col).getCharacterStream();
 	                                    StringWriter writer = new StringWriter();
@@ -311,7 +318,7 @@ public class GoGetter extends AbstractProcessor {
 	            
 	            // Add the result to our value map.
 	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
-	            	String newType = (String)((Map) expression).get("to-type");
+	            	final String newType = (String)((Map) expression).get("to-type");
 	            	switch (newType) {
 		            	case "int": 
 		            		valueMap.put(key, Integer.parseInt(result));
@@ -336,7 +343,7 @@ public class GoGetter extends AbstractProcessor {
     		
 	        if (gogKey == "extract-to-json") {
 	            // Build a JSON object for these results and put it in the FlowFile's content.
-	            JsonBuilder builder = new JsonBuilder();
+	            final JsonBuilder builder = new JsonBuilder();
 	            builder.call(valueMap);
 	            flowFile = session.write(flowFile, new OutputStreamCallback() {
 	            	@Override
@@ -347,7 +354,7 @@ public class GoGetter extends AbstractProcessor {
 	        }
 	        if (gogKey == "extract-to-attributes") {
 	            // Add FlowFile attributes for these results.
-	            for (String key : valueMap.keySet()) {
+	            for (final String key : valueMap.keySet()) {
 	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
 	            }
 	        }

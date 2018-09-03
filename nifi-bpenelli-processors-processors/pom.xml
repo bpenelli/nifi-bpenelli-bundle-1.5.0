@@ -24,6 +24,14 @@
 
     <artifactId>nifi-bpenelli-processors-processors</artifactId>
     <packaging>jar</packaging>
+    
+<!--     <build> -->
+<!--     	<resources> -->
+<!--     		<resource> -->
+<!--     			<directory>docs</directory> -->
+<!--     		</resource> -->
+<!--     	</resources> -->
+<!--     </build> -->
 
     <dependencies>
 		<dependency>

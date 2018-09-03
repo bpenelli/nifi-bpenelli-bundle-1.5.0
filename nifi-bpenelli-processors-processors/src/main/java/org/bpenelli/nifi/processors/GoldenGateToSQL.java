@@ -47,6 +47,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"goldengate, sql, trail, json, bpenelli"})
 @CapabilityDescription("Parses an Oracle GoldenGate trail file and builds a corresponding SQL statement.")
@@ -204,42 +205,41 @@ public class GoldenGateToSQL extends AbstractProcessor {
     /**************************************************************
     * onTrigger
     **************************************************************/
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
 	@Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
-    	ScopeFix sf = new ScopeFix();
+        final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
+        
         session.read(flowFile, new InputStreamCallback() {
         	@Override
             public void process(final InputStream inputStream) throws IOException {       		
-        		sf.content = IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8);
+        		content.set((Map<String, Object>) new JsonSlurper().parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
         	}
         });
-        JsonSlurper slurper = new JsonSlurper();
-        Map content = (Map)slurper.parseText(sf.content);
-
+        
         int i = 0;
         String sql = "";
-        String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
+        final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
         boolean includeSemicolon = context.getProperty(SEMICOLON).asBoolean();
-        String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
-        String keyCols = context.getProperty(KEYCOLS).evaluateAttributeExpressions().getValue();
-        String toCase = context.getProperty(TO_CASE).getValue();
+        final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
+        final String keyCols = context.getProperty(KEYCOLS).evaluateAttributeExpressions().getValue();
+        final String toCase = context.getProperty(TO_CASE).getValue();
         String[] pk = new String[0];
 
         if (keyCols != null && keyCols.length() > 0) {
         	pk = keyCols.split(",");
-        } else if (content.containsKey("primary_keys")) {
-        	pk = ((ArrayList<String>)content.get("primary_keys")).toArray(pk);
+        } else if (content.get().containsKey("primary_keys")) {
+        	pk = ((ArrayList<String>) content.get().get("primary_keys")).toArray(pk);
         }
         
-    	String table = (String)content.get("table");
-        String tableName = table.substring(table.indexOf(".") + 1);
-        String opType = (String)content.get("op_type");
-        Map before = (Map)content.get("before");
-        Map after = (Map)content.get("after");
+    	String table = content.get().get("table").toString();
+        final String tableName = table.substring(table.indexOf(".") + 1);
+        final String opType = content.get().get("op_type").toString();
+        final Map<String, Object> before = (Map<String, Object>) content.get().get("before");
+        final Map<String, Object> after = (Map<String, Object>) content.get().get("after");
         
         if (schema != null) {
             if (schema.length() > 0) {
@@ -257,15 +257,13 @@ public class GoldenGateToSQL extends AbstractProcessor {
             String vals = "VALUES (";
             sql += "INSERT INTO " + table + " ";
             for (String item : (Set<String>)after.keySet() ) {
-            	//String value = null;
-            	//if (itemVal != null) value = itemVal.toString();
-                String colName = applyColMap(context, flowFile, tableName, item, toCase);
+                final String colName = applyColMap(context, flowFile, tableName, item, toCase);
                 if (i > 0) {
                     cols += ", ";
                     vals += ", ";
                 }
                 cols += colName;
-            	Object value = after.get(item);
+            	final Object value = after.get(item);
                 if (value != null) {
                     String val = value.toString().replace("'", "''");
                     vals += "'" + val + "'";
@@ -291,7 +289,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
                 		}
                 	}
                 	if (!isPk) {
-	                    String colName = applyColMap(context, flowFile, tableName, col, toCase);
+	                    final String colName = applyColMap(context, flowFile, tableName, col, toCase);
 	                    if (i > 0) sql += ", ";
 	                    sql += colName + " = ";
 	                	Object colValue = after.get(col);
@@ -312,10 +310,10 @@ public class GoldenGateToSQL extends AbstractProcessor {
             i = 0;
             sql += " WHERE ";
             for (String col : pk) {
-                String colName = applyColMap(context, flowFile, tableName, col, toCase);
+                final String colName = applyColMap(context, flowFile, tableName, col, toCase);
                 if (i > 0) sql += " AND ";
                 sql += colName + " ";
-                Object colValue = before.get(col);
+                final Object colValue = before.get(col);
                 if (colValue != null) {
                     String val = colValue.toString().replace("'", "''");
                     sql += "= '" + val + "'";
@@ -332,11 +330,11 @@ public class GoldenGateToSQL extends AbstractProcessor {
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, sql);
         } else {
-        	sf.content = sql;
+        	final String sqlOut = sql;
             flowFile = session.write(flowFile, new OutputStreamCallback() {
             	@Override
                 public void process(final OutputStream outputStream) throws IOException {
-            		outputStream.write(sf.content.getBytes("UTF-8"));
+            		outputStream.write(sqlOut.getBytes("UTF-8"));
             	}
             });
         }

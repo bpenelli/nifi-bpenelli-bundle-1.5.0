@@ -29,6 +29,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
@@ -51,7 +53,8 @@ import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"convert, json, csv, schema, bpenelli"})
-@CapabilityDescription("Converts JSON data to CSV data.")
+@CapabilityDescription("Converts JSON data to CSV data. The JSON must be an object or an array, "
+	+ "if an array, the array elements must be JSON objects or strings that define JSON objects.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
@@ -59,12 +62,12 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
-		.description("FlowFiles that were successfully processed")
+		.description("Any FlowFile that is successfully converted")
 		.build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("FlowFiles with execution errors")
+		.description("Any FlowFile that cannot be converted")
 		.build();
 
     public static final PropertyDescriptor SCHEMA = new PropertyDescriptor.Builder()
@@ -77,7 +80,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 
     public static final PropertyDescriptor DELIM = new PropertyDescriptor.Builder()
         .name("Delimiter")
-        .description("The the delimiter to use.")
+        .description("The delimiter to use.")
         .required(true)
         .defaultValue(",")
         .expressionLanguageSupported(true)
@@ -85,7 +88,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
         .build();
 
     public static final PropertyDescriptor COL_HEADERS = new PropertyDescriptor.Builder()
-        .name("Include Column Headers")
+        .name("Column Headers")
         .description("If true, will output column headers.")
         .required(true)
         .allowableValues("true", "false")
@@ -95,21 +98,11 @@ public class ConvertJSONToCSV extends AbstractProcessor {
         .build();
 
     public static final PropertyDescriptor QUOTED = new PropertyDescriptor.Builder()
-        .name("Output Quoted Fields")
+        .name("Quoted Fields")
         .description("If true, will output quoted fields.")
         .required(true)
         .allowableValues("true", "false")
         .defaultValue("true")
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .build();
-
-    public static final PropertyDescriptor IS_DF = new PropertyDescriptor.Builder()
-        .name("Is DataFrame Output")
-        .description("Set to true if the JSON was created by a Spark DataFrame.ToJSON() call.")
-        .required(true)
-        .allowableValues("true", "false")
-        .defaultValue("false")
         .expressionLanguageSupported(false)
         .addValidator(Validator.VALID)
         .build();
@@ -127,7 +120,6 @@ public class ConvertJSONToCSV extends AbstractProcessor {
         descriptors.add(DELIM);
         descriptors.add(COL_HEADERS);
         descriptors.add(QUOTED);
-        descriptors.add(IS_DF);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<Relationship>();
         relationships.add(REL_SUCCESS);
@@ -169,34 +161,33 @@ public class ConvertJSONToCSV extends AbstractProcessor {
     	FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
-        String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions(flowFile).getValue();
-        String delim = context.getProperty(DELIM).evaluateAttributeExpressions(flowFile).getValue();
-        boolean headers = context.getProperty(COL_HEADERS).asBoolean();
-        boolean quoted = context.getProperty(QUOTED).asBoolean();
-        boolean isDF = context.getProperty(IS_DF).asBoolean();
+        final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions(flowFile).getValue();
+        final String delim = context.getProperty(DELIM).evaluateAttributeExpressions(flowFile).getValue();
+        final boolean headers = context.getProperty(COL_HEADERS).asBoolean();
+        final boolean quoted = context.getProperty(QUOTED).asBoolean();
+        final AtomicReference<ValueList> jsonData = new AtomicReference<ValueList>();
+        final String ELEMENT_TYPE_ERROR = "Array elements must contain JSON objects or strings that define JSON objects.";
 
     	// Read content.
-        ScopeFix sf = new ScopeFix();
         session.read(flowFile, new InputStreamCallback() {
         	@Override
             public void process(final InputStream inputStream) throws IOException {
-        		sf.objectData = new JsonSlurper().setType(LAX).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
+        		jsonData.set((ValueList) new JsonSlurper().setType(LAX).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
         	}
         });
                 
-        Map<String, Object> schemaData = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(schema);
-        
+        final Map<String, Object> schemaData = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(schema);
+    	final ValueList fieldList = (ValueList) schemaData.get("fields");        
         final StringBuilder csv = new StringBuilder();
         boolean isFirstLine = true;
         boolean isFirstCol = true;
         
         try {
-
+        	
 	        // Add CSV headers if requested.
         	if (headers) {
-	        	ValueList fieldList = (ValueList) schemaData.get("fields");
 	        	for (Object item : fieldList) {
-	        		Map<String, Object> field = (Map<String, Object>) item;
+	        		final Map<String, Object> field = (Map<String, Object>) item;
 	        		if (!isFirstCol) csv.append(delim);
 	        		if (quoted) csv.append("\"");
 	        		csv.append(field.get("name").toString());
@@ -207,19 +198,27 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	        }
 	        
 	        // Add CSV data lines.
-        	while (((ValueList) sf.objectData).size() > 0) {
-	        	Object rawRecord = ((ValueList) sf.objectData).get(0);
+        	while (jsonData.get().size() > 0) {
+	        	final Object rawRecord = jsonData.get().get(0);
 	        	Map<String, Object> record = null; 
-	        	if (rawRecord instanceof String && isDF) {
-        			record = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(rawRecord.toString());
-        		} else {	        	
+	        	if (rawRecord instanceof String) {
+	        		// See if the string contains a JSON object.
+	        		final Object checkType = new JsonSlurper().setType(LAX).parseText(rawRecord.toString());
+	        		if (checkType instanceof Map) {
+	        			record = (Map<String, Object>) checkType;
+	        		} else {
+	        			throw new IllegalArgumentException(ELEMENT_TYPE_ERROR);
+	        		}
+        		} else if (rawRecord instanceof Map) {	        	
         			record = (Map<String, Object>) rawRecord;
+        		} else {
+        			throw new IllegalArgumentException(ELEMENT_TYPE_ERROR);
         		}
 	    		if (!isFirstLine) csv.append("\n");
 	        	isFirstCol = true;
-	        	for (Object item : (ValueList) schemaData.get("fields")) {
-	        		Map<String, Object> field = (Map<String, Object>) item;
-	        		String fieldName = field.get("name").toString();
+	        	for (final Object item : fieldList) {
+	        		final Map<String, Object> field = (Map<String, Object>) item;
+	        		final String fieldName = field.get("name").toString();
 	        		if (!isFirstCol) csv.append(delim);
 		    		if (quoted) csv.append("\"");
 		    		if (record.containsKey(fieldName)) {
@@ -233,7 +232,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 		    		isFirstCol = false;
 	        	}
 	            isFirstLine = false;
-	            ((ValueList) sf.objectData).remove(rawRecord);
+	            jsonData.get().remove(rawRecord);
 	        }
 	        
 	        // Write CSV to the FlowFile's content.
@@ -246,10 +245,9 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	    
             session.transfer(flowFile, REL_SUCCESS);	        
 
-        } catch (Exception e) {
-        	e.printStackTrace();
+        } catch (final IllegalArgumentException e) {
             session.transfer(flowFile, REL_FAILURE);
+        	getLogger().error("Unable to convert {} due to {}", new Object[] {flowFile, e});
         }
-        session.commit();
     }
 }

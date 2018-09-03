@@ -46,11 +46,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"content, flowfile, attribute, extract, bpenelli"})
-@CapabilityDescription("Extracts the contents of a FlowFile to a named attribute.")
+@CapabilityDescription("Extracts the contents of a FlowFile into a named attribute.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class ContentToAttribute extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -147,15 +146,14 @@ public class ContentToAttribute extends AbstractProcessor {
         flowFile = session.putAttribute(flowFile, attName, content.get());
 
         // Apply any supplied expression language to the extracted content.
-        String expLang = context.getProperty(EXP_LANG).getValue();
+        final String expLang = context.getProperty(EXP_LANG).getValue();
         if (expLang != null && !expLang.isEmpty()) {
-        	PropertyValue newPropVal = context.newPropertyValue(expLang);
+        	final PropertyValue newPropVal = context.newPropertyValue(expLang);
             content.set(newPropVal.evaluateAttributeExpressions(flowFile).getValue());
             flowFile = session.putAttribute(flowFile, attName, content.get());
         }
                 
         // Transfer the FlowFile to success and commit the session.
         session.transfer(flowFile, REL_SUCCESS);
-        session.commit();
     }
 }

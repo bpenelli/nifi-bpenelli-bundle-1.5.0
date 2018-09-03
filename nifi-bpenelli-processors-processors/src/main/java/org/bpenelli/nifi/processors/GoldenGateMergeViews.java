@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"goldengate, merge, trail, json, bpenelli"})
 @CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and outputs it as JSON.")
@@ -195,18 +196,16 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         if (flowFile == null) return;
         
     	// Read the FlowFile's contents in.
-        ScopeFix sf = new ScopeFix();
+        final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
         session.read(flowFile, new InputStreamCallback() {
         	@Override
             public void process(final InputStream inputStream) throws IOException {       		
-        		sf.content = IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8);
+        		content.set((Map<String, Object>) (new JsonSlurper()).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
         	}
         });
 
         // Verify it's a supported op_type, i.e. Insert or Update.
-        JsonSlurper slurper = new JsonSlurper();
-        Map<String, Object> content = (Map<String, Object>)slurper.parseText(sf.content);
-        String opType = (String)content.get("op_type");
+        final String opType = content.get().get("op_type").toString();
         if (!opType.equals("I") && !opType.equals("U")) {
             // Unsupported
             session.transfer(flowFile, REL_UNSUPPORTED);
@@ -214,19 +213,19 @@ public class GoldenGateMergeViews extends AbstractProcessor {
             return;
         }
 
-        String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
-        String ggFieldsCSV = context.getProperty(GG_FIELDS).getValue();
-        String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
-        String toCase = context.getProperty(TO_CASE).getValue();
-    	String table = (String)content.get("table");
-        String tableName = table.substring(table.indexOf(".") + 1);
-        Map<String, Object> before = (Map<String, Object>)content.get("before");
-        Map<String, Object> after = (Map<String, Object>)content.get("after");
-        Map<String, Object> jsonMap = new TreeMap<String, Object>();
+        final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
+        final String ggFieldsCSV = context.getProperty(GG_FIELDS).getValue();
+        final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
+        final String toCase = context.getProperty(TO_CASE).getValue();
+    	String table = content.get().get("table").toString();
+        final String tableName = table.substring(table.indexOf(".") + 1);
+        final Map<String, Object> before = (Map<String, Object>) content.get().get("before");
+        final Map<String, Object> after = (Map<String, Object>) content.get().get("after");
+        final Map<String, Object> jsonMap = new TreeMap<String, Object>();
 
-        content.remove("primary_keys");
-        content.remove("before");
-        content.remove("after");
+        content.get().remove("primary_keys");
+        content.get().remove("before");
+        content.get().remove("after");
         
         String[] ggFields = null;
         
@@ -244,10 +243,10 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         table = applyCase(table, toCase);
 
         if (ggFields != null && ggFields.length > 0) {
-        	for (String field : ggFields) {
-		        for (String key : content.keySet()) {
+        	for (final String field : ggFields) {
+		        for (final String key : content.get().keySet()) {
 	        		if (field.equals(key)) {
-			        	Object val = content.get(key);
+			        	Object val = content.get().get(key);
 			        	if (!(val instanceof Map) && !(val instanceof ArrayList)) {
 			        		if (key.equals("table")) val = table;
 			        		jsonMap.put(this.applyCase(key, toCase), val);
@@ -258,30 +257,29 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         	}
     	}
         if (before != null) {
-	        for (String key : before.keySet()) {
+	        for (final String key : before.keySet()) {
 	        	jsonMap.put(this.applyCase(key, toCase), before.get(key));
 	        }
         }
         if (after != null) {
-	        for (String key : after.keySet()) {
+	        for (final String key : after.keySet()) {
 	        	jsonMap.put(this.applyCase(key, toCase), after.get(key));
 	        }
         }
         
         // Build a JSON object for these results and put it in the FlowFile's content.
-        JsonBuilder builder = new JsonBuilder();
+        final JsonBuilder builder = new JsonBuilder();
         builder.call(jsonMap);
-        String json = builder.toString();
+        final String json = builder.toString();
         
         // Output the JSON
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, json);
         } else {
-        	sf.content = json;
             flowFile = session.write(flowFile, new OutputStreamCallback() {
             	@Override
                 public void process(final OutputStream outputStream) throws IOException {
-            		outputStream.write(sf.content.getBytes("UTF-8"));
+            		outputStream.write(json.getBytes("UTF-8"));
             	}
             });
         }

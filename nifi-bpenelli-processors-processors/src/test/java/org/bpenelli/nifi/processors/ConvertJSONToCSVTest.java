@@ -57,7 +57,6 @@ public class ConvertJSONToCSVTest {
 
         // Add properties.
         runner.setProperty(ConvertJSONToCSV.SCHEMA, schema.toString());
-        runner.setProperty(ConvertJSONToCSV.IS_DF, "true");
 
         // Add the content to the runner.
         runner.enqueue(content);

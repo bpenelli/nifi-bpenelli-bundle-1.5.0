@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -212,31 +213,29 @@ public class XMLToAttributes extends AbstractProcessor {
         if (flowFile == null) return;
         
         // Get the XML
-        String content = null;
-        String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        String attPrefix = context.getProperty(ATTRIBUTE_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
+        final AtomicReference<String> content = new AtomicReference<String>();
+        final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
+        final String attPrefix = context.getProperty(ATTRIBUTE_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
         if (attName != null && attName.length() > 0) {
-            content = flowFile.getAttribute(attName);
+            content.set(flowFile.getAttribute(attName));
         } else {
-        	ScopeFix sf = new ScopeFix();
             session.read(flowFile, new InputStreamCallback() {
             	@Override
                 public void process(final InputStream inputStream) throws IOException {
-            		sf.content = IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8);
+            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
             	}
             });
-            content = sf.content;
         }
 
         // Extract the XML
         String rootPath = context.getProperty(XML_ROOT).evaluateAttributeExpressions(flowFile).getValue();
-        String parseType = context.getProperty(PARSE_TYPE).getValue();
+        final String parseType = context.getProperty(PARSE_TYPE).getValue();
         if (parseType == "table") rootPath += "/child::*";
-        String delim = "\\" + context.getProperty(NAME_DELIM).evaluateAttributeExpressions(flowFile).getValue();
-        boolean alwaysAdd = context.getProperty(ALWAYS_ADD).asBoolean();
-        XPath xpath = XPathFactory.newInstance().newXPath();
-        
+        final String delim = "\\" + context.getProperty(NAME_DELIM).evaluateAttributeExpressions(flowFile).getValue();
+        final boolean alwaysAdd = context.getProperty(ALWAYS_ADD).asBoolean();
+        final XPath xpath = XPathFactory.newInstance().newXPath();
         DocumentBuilder builder;
+        
 		try {
 			builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 		} catch (ParserConfigurationException e) {
@@ -246,7 +245,7 @@ public class XMLToAttributes extends AbstractProcessor {
 			return;
 		}
         
-		ByteArrayInputStream xmlInputStream = new ByteArrayInputStream(content.getBytes());
+		final ByteArrayInputStream xmlInputStream = new ByteArrayInputStream(content.get().getBytes());
         
         Element doc;
 		try {
@@ -273,21 +272,21 @@ public class XMLToAttributes extends AbstractProcessor {
 			return;
 		}
         
-		int fragCount = records.getLength();
+		final int fragCount = records.getLength();
         int fragIndex = 0;
-        String fragID = UUID.randomUUID().toString();
+        final String fragID = UUID.randomUUID().toString();
         
         String[] renameList = new String[0];
-        String renameCSV = context.getProperty(ELEM_NAMES).evaluateAttributeExpressions(flowFile).getValue();
+        final String renameCSV = context.getProperty(ELEM_NAMES).evaluateAttributeExpressions(flowFile).getValue();
         if (renameCSV != null && renameCSV.length() > 0) renameList = renameCSV.split(delim);
         
         String[] newNameList = new String[0];
-        String newNameCSV = context.getProperty(NEW_NAMES).evaluateAttributeExpressions(flowFile).getValue();
+        final String newNameCSV = context.getProperty(NEW_NAMES).evaluateAttributeExpressions(flowFile).getValue();
         if (newNameCSV != null && newNameCSV.length() > 0) newNameList = newNameCSV.split(delim);
 
         // Iterate the record elements.
         for (int i = 0 ; i < fragCount; i++) {
-        	Node record = records.item(i);
+        	final Node record = records.item(i);
             FlowFile newFlowFile = session.create(flowFile);
             NodeList fields;
 			try {
@@ -299,7 +298,7 @@ public class XMLToAttributes extends AbstractProcessor {
 				session.commit();
 				return;
 			}
-        	int fieldCount = fields.getLength();
+        	final int fieldCount = fields.getLength();
             fragIndex++;
             if (alwaysAdd) {
             	for (String name : newNameList) {
@@ -310,7 +309,7 @@ public class XMLToAttributes extends AbstractProcessor {
             for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++) {
             	Node field = fields.item(fieldIndex);
                 String fieldName = field.getNodeName();
-                String fieldValue = field.getTextContent();
+                final String fieldValue = field.getTextContent();
                 // Check if we need to rename the field
                 for (int renameIndex = 0; renameIndex < renameList.length; renameIndex++) {
                     String value = renameList[renameIndex];
