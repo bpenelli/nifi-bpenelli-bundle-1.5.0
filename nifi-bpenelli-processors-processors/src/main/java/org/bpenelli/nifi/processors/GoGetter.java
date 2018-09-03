@@ -351,5 +351,4 @@ public class GoGetter extends AbstractProcessor {
 	        }
     	}
     }
-
 }
