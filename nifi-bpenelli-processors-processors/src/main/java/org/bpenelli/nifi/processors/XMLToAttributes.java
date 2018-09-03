@@ -68,12 +68,11 @@ import org.xml.sax.SAXException;
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class XMLToAttributes extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
-		.description("FlowFiles that were successfully processed")
+		.description("Any FlowFile that is successfully processed")
 		.build();
 
     public static final Relationship REL_ORIGINAL = new Relationship.Builder()
@@ -83,7 +82,7 @@ public class XMLToAttributes extends AbstractProcessor {
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("Failed FlowFiles")
+		.description("Any FlowFile that cannot be processed")
 		.build();
 
     public static final PropertyDescriptor XML_ROOT = new PropertyDescriptor.Builder()
@@ -96,7 +95,7 @@ public class XMLToAttributes extends AbstractProcessor {
 
     public static final PropertyDescriptor PARSE_TYPE = new PropertyDescriptor.Builder()
         .name("Parse Type")
-        .description("table; Treats root node elements as records and outputs a FlowFile for each. record; Treats root node elements as fields and extracts to the existing FlowFile.")
+        .description("table - Treats root node elements as records and outputs a FlowFile for each. record - Treats root node elements as fields and extracts to the existing FlowFile.")
         .required(true)
         .allowableValues("table","record")
         .defaultValue("table")
@@ -228,9 +227,11 @@ public class XMLToAttributes extends AbstractProcessor {
         }
 
         // Extract the XML
-        String rootPath = context.getProperty(XML_ROOT).evaluateAttributeExpressions(flowFile).getValue();
+        final StringBuilder rootPath = new StringBuilder(context.getProperty(XML_ROOT).evaluateAttributeExpressions(flowFile).getValue());
         final String parseType = context.getProperty(PARSE_TYPE).getValue();
-        if (parseType == "table") rootPath += "/child::*";
+        if (parseType == "table") {
+        	rootPath.append("/child::*");
+        }
         final String delim = "\\" + context.getProperty(NAME_DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final boolean alwaysAdd = context.getProperty(ALWAYS_ADD).asBoolean();
         final XPath xpath = XPathFactory.newInstance().newXPath();
@@ -239,9 +240,8 @@ public class XMLToAttributes extends AbstractProcessor {
 		try {
 			builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
 		} catch (ParserConfigurationException e) {
-			e.printStackTrace();
 			session.transfer(flowFile, REL_FAILURE);
-			session.commit();
+			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 			return;
 		}
         
@@ -251,24 +251,21 @@ public class XMLToAttributes extends AbstractProcessor {
 		try {
 			doc = builder.parse(xmlInputStream).getDocumentElement();
 		} catch (SAXException e) {
-			e.printStackTrace();
 			session.transfer(flowFile, REL_FAILURE);
-			session.commit();
+			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 			return;
 		} catch (IOException e) {
-			e.printStackTrace();
 			session.transfer(flowFile, REL_FAILURE);
-			session.commit();
+			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 			return;
 		}
 
 		NodeList records;
 		try {
-			records = (NodeList)xpath.evaluate(rootPath, doc, XPathConstants.NODESET);
+			records = (NodeList)xpath.evaluate(rootPath.toString(), doc, XPathConstants.NODESET);
 		} catch (XPathExpressionException e) {
-			e.printStackTrace();
 			session.transfer(flowFile, REL_FAILURE);
-			session.commit();
+			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 			return;
 		}
         
@@ -292,10 +289,8 @@ public class XMLToAttributes extends AbstractProcessor {
 			try {
 				fields = (NodeList)xpath.evaluate("./child::*", record, XPathConstants.NODESET);
 			} catch (XPathExpressionException e) {
-				e.printStackTrace();
+				getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 				session.rollback();
-				session.transfer(flowFile, REL_FAILURE);
-				session.commit();
 				return;
 			}
         	final int fieldCount = fields.getLength();
@@ -337,7 +332,5 @@ public class XMLToAttributes extends AbstractProcessor {
     
         // Transfer the original FlowFile.
         session.transfer(flowFile, REL_ORIGINAL);
-        session.commit();
     }
-
 }

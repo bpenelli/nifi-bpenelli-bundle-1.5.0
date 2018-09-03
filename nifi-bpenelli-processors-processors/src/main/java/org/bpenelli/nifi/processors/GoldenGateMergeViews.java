@@ -28,7 +28,6 @@ import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
@@ -57,7 +56,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class GoldenGateMergeViews extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -158,35 +156,6 @@ public class GoldenGateMergeViews extends AbstractProcessor {
     public void onScheduled(final ProcessContext context) {}
 
     /**************************************************************
-    * applyCase
-    **************************************************************/
-    String applyCase(String stringVal, String toCase) {
-        switch (toCase) {
-            case "Upper": return stringVal.toUpperCase(); 
-            case "Lower": return stringVal.toLowerCase();
-            default: return stringVal;
-        }
-    }
-
-    /**************************************************************
-    * applyColMap
-    **************************************************************/
-    String applyColMap(ProcessContext context, FlowFile flowFile, String sourceTableName, 
-    		String sourceColName, String toCase) {
-        String colMapKey = sourceTableName + "." + sourceColName;
-        String colName = sourceColName;
-        for (PropertyDescriptor p : context.getProperties().keySet()) {
-            if (p.isDynamic() && p.getName() == colMapKey) {
-                PropertyValue propVal = context.getProperty(p);
-                colName = propVal.evaluateAttributeExpressions(flowFile).getValue();
-                break;
-            }
-        }
-        colName = applyCase(colName, toCase);
-        return colName;
-    }
-
-    /**************************************************************
     * onTrigger
     **************************************************************/
     @SuppressWarnings({ "unchecked" })
@@ -240,7 +209,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
                 table = tableName;
             }
         }
-        table = applyCase(table, toCase);
+        table = Utils.applyCase(table, toCase);
 
         if (ggFields != null && ggFields.length > 0) {
         	for (final String field : ggFields) {
@@ -249,7 +218,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
 			        	Object val = content.get().get(key);
 			        	if (!(val instanceof Map) && !(val instanceof ArrayList)) {
 			        		if (key.equals("table")) val = table;
-			        		jsonMap.put(this.applyCase(key, toCase), val);
+			        		jsonMap.put(Utils.applyCase(key, toCase), val);
 			        	}
 			        	break;
 	        		}
@@ -258,12 +227,12 @@ public class GoldenGateMergeViews extends AbstractProcessor {
     	}
         if (before != null) {
 	        for (final String key : before.keySet()) {
-	        	jsonMap.put(this.applyCase(key, toCase), before.get(key));
+	        	jsonMap.put(Utils.applyCase(key, toCase), before.get(key));
 	        }
         }
         if (after != null) {
 	        for (final String key : after.keySet()) {
-	        	jsonMap.put(this.applyCase(key, toCase), after.get(key));
+	        	jsonMap.put(Utils.applyCase(key, toCase), after.get(key));
 	        }
         }
         

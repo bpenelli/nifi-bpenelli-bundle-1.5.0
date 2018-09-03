@@ -47,30 +47,29 @@ import org.apache.nifi.processor.exception.ProcessException;
 
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Releases the Hold on a given topic and key.")
-@SeeAlso({})
+@SeeAlso(classNames = {"org.bpenelli.nifi.processors.Hold"})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class Release extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
-		.description("FlowFiles that were successfully processed")
+		.description("Any FlowFile whose Hold topic and key is successfully released")
 		.build();
 
     public static final Relationship REL_MISSING = new Relationship.Builder()
 		.name("missing")
-		.description("FlowFiles where the Hold topic and key were not found in cache")
+		.description("Any FlowFile whose Hold topic and key were not found in cache")
 		.build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("FlowFiles with execution errors")
+		.description("Any FlowFile with an IO exception")
 		.build();
 
     public static final PropertyDescriptor KEY_TOPIC = new PropertyDescriptor.Builder()
         .name("Topic")
-        .description("The hold topic name.")
+        .description("The Hold topic name.")
         .required(true)
         .expressionLanguageSupported(true)
         .addValidator(Validator.VALID)
@@ -78,7 +77,7 @@ public class Release extends AbstractProcessor {
 
     public static final PropertyDescriptor KEY_VALUE = new PropertyDescriptor.Builder()
         .name("Key")
-        .description("The hold key.")
+        .description("The Hold key.")
         .required(true)
         .expressionLanguageSupported(true)
         .addValidator(Validator.VALID)
@@ -146,29 +145,21 @@ public class Release extends AbstractProcessor {
     	FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
-        String keyTopic = context.getProperty(KEY_TOPIC).evaluateAttributeExpressions(flowFile).getValue();
-        String keyValue = context.getProperty(KEY_VALUE).evaluateAttributeExpressions(flowFile).getValue();
-        String holdKey = keyTopic + "." + keyValue;
-        DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
-        
-        Serializer<String> stringSerializer = new Serializer<String>() {
-        	@Override
-        	public void serialize(String stringValue, OutputStream out)
-        			throws SerializationException, IOException {
-        		out.write(stringValue.getBytes(StandardCharsets.UTF_8));
-        	}
-		};
+        final String keyTopic = context.getProperty(KEY_TOPIC).evaluateAttributeExpressions(flowFile).getValue();
+        final String keyValue = context.getProperty(KEY_VALUE).evaluateAttributeExpressions(flowFile).getValue();
+        final String holdKey = keyTopic + "." + keyValue;
+        final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         
 		try {
-			if (cacheService.containsKey(holdKey, stringSerializer)) {
-				cacheService.remove(holdKey, stringSerializer);
+			if (cacheService.containsKey(holdKey, Utils.stringSerializer)) {
+				cacheService.remove(holdKey, Utils.stringSerializer);
 		        session.transfer(flowFile, REL_SUCCESS);
 			} else {
 		        session.transfer(flowFile, REL_MISSING);
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
-			session.transfer(flowFile, REL_FAILURE);			
+			session.transfer(flowFile, REL_FAILURE);
+			getLogger().error("Unable to Release topic and key for {} due to {}", new Object[] {flowFile, e});
 		} finally {
 			session.commit();
 		}

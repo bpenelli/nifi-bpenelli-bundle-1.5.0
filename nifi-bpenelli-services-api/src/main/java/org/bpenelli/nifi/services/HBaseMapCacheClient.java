@@ -35,7 +35,6 @@ import org.apache.nifi.distributed.cache.client.Serializer;
 @Tags({"client", "cluster", "map", "cache", "hbase", "bpenelli"})
 @CapabilityDescription("Provides the ability to communicate with a DistributedMapCacheServer. This allows "
         + "multiple nodes to coordinate state with a single remote entity.")
-
 public interface HBaseMapCacheClient extends ControllerService {
 
 	/**

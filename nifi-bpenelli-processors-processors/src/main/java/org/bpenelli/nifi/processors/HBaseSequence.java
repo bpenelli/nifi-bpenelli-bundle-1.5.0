@@ -51,24 +51,23 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.services.HBaseMapCacheClient;
 
 @Tags({"sequence", "auto", "increment", "assign", "cache", "flowfile", "hbase", "bpenelli"})
-@CapabilityDescription("Assigns the next increment of a sequence stored in a HBase table, "
-	+ "to a FlowFile attribute, and updates the table. Provides concurrency safeguards "
+@CapabilityDescription("Assigns the next increment of a sequence stored in a HBase table "
+	+ "to a FlowFile attribute and updates the table. Provides concurrency safeguards "
 	+ "by rolling back the Session if the sequence value changes between read and update. "
 	+ "Uses a HBaseMapCacheClientService controller to perform operations on HBase.")
 @SeeAlso(classNames = {"org.bpenelli.nifi.services.HBaseMapCacheClientService"})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class HBaseSequence extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
-		.description("FlowFiles that were successfully processed")
+		.description("Any FlowFile that is successfully processed")
 		.build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("FlowFiles with execution errors")
+		.description("Any FlowFile with an IO exception")
 		.build();
 
     public static final PropertyDescriptor SEQ_NAME = new PropertyDescriptor.Builder()
@@ -80,22 +79,22 @@ public class HBaseSequence extends AbstractProcessor {
         .build();
 
     public static final PropertyDescriptor START_NO = new PropertyDescriptor.Builder()
-            .name("Start With")
-            .description("The number to start with if the sequence doesn't yet exist and has to be created.")
-            .required(true)
-            .expressionLanguageSupported(true)
-            .addValidator(StandardValidators.LONG_VALIDATOR)
-            .defaultValue("1")
-            .build();
+        .name("Start With")
+        .description("The number to start with if the sequence doesn't yet exist and has to be created.")
+        .required(true)
+        .expressionLanguageSupported(true)
+        .addValidator(StandardValidators.LONG_VALIDATOR)
+        .defaultValue("1")
+        .build();
 
     public static final PropertyDescriptor INC_BY = new PropertyDescriptor.Builder()
-            .name("Increment By")
-            .description("The number to increment by.")
-            .required(true)
-            .expressionLanguageSupported(true)
-            .addValidator(StandardValidators.LONG_VALIDATOR)
-            .defaultValue("1")
-            .build();
+        .name("Increment By")
+        .description("The number to increment by.")
+        .required(true)
+        .expressionLanguageSupported(true)
+        .addValidator(StandardValidators.LONG_VALIDATOR)
+        .defaultValue("1")
+        .build();
 
     public static final PropertyDescriptor OUT_ATTR = new PropertyDescriptor.Builder()
         .name("Output Attribute")
@@ -107,13 +106,13 @@ public class HBaseSequence extends AbstractProcessor {
         .build();
 
     public static final PropertyDescriptor HBASE_SVC = new PropertyDescriptor.Builder()
-            .name("HBase Map Cache Client Service")
-            .description("The Controller providing HBase map cache services.")
-            .required(true)
-            .expressionLanguageSupported(false)
-            .identifiesControllerService(HBaseMapCacheClient.class)
-            .addValidator(Validator.VALID)
-            .build();
+        .name("HBase Map Cache Client Service")
+        .description("The Controller providing HBase map cache services.")
+        .required(true)
+        .expressionLanguageSupported(false)
+        .identifiesControllerService(HBaseMapCacheClient.class)
+        .addValidator(Validator.VALID)
+        .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
@@ -170,36 +169,20 @@ public class HBaseSequence extends AbstractProcessor {
         if (flowFile == null) return;
         
         // Get property values.
-        String seqName = context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        String startNo = context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue();
-        long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
-        String outAttr = context.getProperty(OUT_ATTR).evaluateAttributeExpressions(flowFile).getValue();
-        HBaseMapCacheClient hbaseService = context.getProperty(HBASE_SVC).asControllerService(HBaseMapCacheClient.class);
-
-        Serializer<String> stringSerializer = new Serializer<String>() {
-        	@Override
-        	public void serialize(String stringValue, OutputStream out)
-        			throws SerializationException, IOException {
-        		out.write(stringValue.getBytes(StandardCharsets.UTF_8));
-        	}
-		};
-        
-        Deserializer<String> stringDeserializer = new Deserializer<String>() {
-        	@Override
-        	public String deserialize(byte[] bytes) throws DeserializationException, IOException {
-        		return new String(bytes);
-        	}	                        	
-		};
-		
+        final String seqName = context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue();
+        final String startNo = context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue();
+        final long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
+        final String outAttr = context.getProperty(OUT_ATTR).evaluateAttributeExpressions(flowFile).getValue();
+        final HBaseMapCacheClient hbaseService = context.getProperty(HBASE_SVC).asControllerService(HBaseMapCacheClient.class);
 		
 		try {
-			if (hbaseService.containsKey(seqName, stringSerializer)) {
+			if (hbaseService.containsKey(seqName, Utils.stringSerializer)) {
 				// Read the current sequence value.
-				String currentValue = hbaseService.get(seqName, stringSerializer, stringDeserializer);
+				final String currentValue = hbaseService.get(seqName, Utils.stringSerializer, Utils.stringDeserializer);
 				// Increment the value by the amount of the supplied increment.
-				String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
+				final String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
 				// Only save if the value hasn't changed since it was read.
-				if (hbaseService.checkAndPut(seqName, newValue, currentValue, stringSerializer, stringSerializer)) {
+				if (hbaseService.checkAndPut(seqName, newValue, currentValue, Utils.stringSerializer, Utils.stringSerializer)) {
 					flowFile = session.putAttribute(flowFile, outAttr, newValue);
 					session.transfer(flowFile, REL_SUCCESS);
 					session.commit();
@@ -209,19 +192,17 @@ public class HBaseSequence extends AbstractProcessor {
 				}
 			} else {
 				// The sequence doesn't exist, so add it with the supplied starting value.
-				if (hbaseService.putIfAbsent(seqName, startNo, stringSerializer, stringSerializer)) {
+				if (hbaseService.putIfAbsent(seqName, startNo, Utils.stringSerializer, Utils.stringSerializer)) {
 					flowFile = session.putAttribute(flowFile, outAttr, startNo);
 					session.transfer(flowFile, REL_SUCCESS);
-					session.commit();
 				} else {
 					// Rolling back will put the FlowFile back on the queue to be tried again.
 					session.rollback();	
 				}
 			}
 		} catch (IOException e) {
-			e.printStackTrace();
 			session.transfer(flowFile, REL_FAILURE);
-			session.commit();
+			getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
 		}
     }
 }

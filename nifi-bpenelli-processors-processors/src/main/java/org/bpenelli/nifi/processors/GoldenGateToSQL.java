@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 package org.bpenelli.nifi.processors;
+
 import groovy.json.JsonSlurper;
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
@@ -26,7 +27,6 @@ import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
@@ -54,7 +54,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
-
 public class GoldenGateToSQL extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -174,35 +173,6 @@ public class GoldenGateToSQL extends AbstractProcessor {
     }
 
     /**************************************************************
-    * applyCase
-    **************************************************************/
-    String applyCase(String stringVal, String toCase) {
-        switch (toCase) {
-            case "Upper": return stringVal.toUpperCase(); 
-            case "Lower": return stringVal.toLowerCase();
-            default: return stringVal;
-        }
-    }
-
-    /**************************************************************
-    * applyColMap
-    **************************************************************/
-    String applyColMap(ProcessContext context, FlowFile flowFile, String sourceTableName, 
-    		String sourceColName, String toCase) {
-        String colMapKey = sourceTableName + "." + sourceColName;
-        String colName = sourceColName;
-        for (PropertyDescriptor p : context.getProperties().keySet()) {
-            if (p.isDynamic() && p.getName() == colMapKey) {
-                PropertyValue propVal = context.getProperty(p);
-                colName = propVal.evaluateAttributeExpressions(flowFile).getValue();
-                break;
-            }
-        }
-        colName = applyCase(colName, toCase);
-        return colName;
-    }
-
-    /**************************************************************
     * onTrigger
     **************************************************************/
     @SuppressWarnings({ "unchecked" })
@@ -221,9 +191,10 @@ public class GoldenGateToSQL extends AbstractProcessor {
         });
         
         int i = 0;
-        String sql = "";
+        //String sql = "";
+        final StringBuilder sql = new StringBuilder();
         final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
-        boolean includeSemicolon = context.getProperty(SEMICOLON).asBoolean();
+        final boolean includeSemicolon = context.getProperty(SEMICOLON).asBoolean();
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
         final String keyCols = context.getProperty(KEYCOLS).evaluateAttributeExpressions().getValue();
         final String toCase = context.getProperty(TO_CASE).getValue();
@@ -248,39 +219,41 @@ public class GoldenGateToSQL extends AbstractProcessor {
                 table = tableName;
             }
         }
-        table = applyCase(table, toCase);
+        table = Utils.applyCase(table, toCase);
 
         // Build the SQL
         if (opType.equals("I")) {
             // Insert statement
-            String cols = "(";
-            String vals = "VALUES (";
-            sql += "INSERT INTO " + table + " ";
+            final StringBuilder cols = new StringBuilder("(");
+            final StringBuilder vals = new StringBuilder("VALUES (");
+            sql.append("INSERT INTO ").append(table).append(" ");
             for (String item : (Set<String>)after.keySet() ) {
-                final String colName = applyColMap(context, flowFile, tableName, item, toCase);
+                final String colName = Utils.applyColMap(context, flowFile, tableName, item, toCase);
                 if (i > 0) {
-                    cols += ", ";
-                    vals += ", ";
+                    cols.append(", ");
+                    vals.append(", ");
                 }
-                cols += colName;
+                cols.append(colName);
             	final Object value = after.get(item);
                 if (value != null) {
-                    String val = value.toString().replace("'", "''");
-                    vals += "'" + val + "'";
+                    final String val = value.toString().replace("'", "''");
+                    vals.append("'").append(val).append("'");
                 } else {
-                    vals += "null";
+                    vals.append("null");
                 }
                 i++;
             }
-            cols += ")";
-            vals += ")";
-            sql += cols + " " + vals;
+            cols.append(")");
+            vals.append(")");
+            sql.append(cols).append(" ").append(vals);
         } else {
-            if (pk.length == 0) throw new ProcessException("Primary key column(s) are required for this operation.");
+            if (pk.length == 0) {
+            	throw new ProcessException("Primary key column(s) are required for this operation.");
+            }
             if (opType.equals("U")) {
                  // Update statement
-                sql += "UPDATE " + table + " SET ";
-                for (String col : (Set<String>)after.keySet() ) {
+                sql.append("UPDATE ").append(table).append(" SET ");
+                for (final String col : (Set<String>)after.keySet() ) {
                 	boolean isPk = false; 
                 	for (String p : pk) {
                 		if (col.equals(p)) {
@@ -289,52 +262,55 @@ public class GoldenGateToSQL extends AbstractProcessor {
                 		}
                 	}
                 	if (!isPk) {
-	                    final String colName = applyColMap(context, flowFile, tableName, col, toCase);
-	                    if (i > 0) sql += ", ";
-	                    sql += colName + " = ";
-	                	Object colValue = after.get(col);
+	                    final String colName = Utils.applyColMap(context, flowFile, tableName, col, toCase);
+	                    if (i > 0) {
+	                    	sql.append(", ");
+	                    }
+	                    sql.append(colName).append(" = ");
+	                	final Object colValue = after.get(col);
 	                    if (colValue != null) {
 	                        String val = colValue.toString().replace("'", "''");
-	                        sql += "'" + val + "'";
+	                        sql.append("'").append(val).append("'");
 	                    } else {
-	                        sql += "null";
+	                        sql.append("null");
 	                    }                    
 	                    i++;
                 	}
                 }
             } else if (opType.equals("D")) {
                 // Delete statement
-                sql += "DELETE FROM " + table;
+                sql.append("DELETE FROM ").append(table);
             }
            // Where clause for the update or delete.
             i = 0;
-            sql += " WHERE ";
-            for (String col : pk) {
-                final String colName = applyColMap(context, flowFile, tableName, col, toCase);
-                if (i > 0) sql += " AND ";
-                sql += colName + " ";
+            sql.append(" WHERE ");
+            for (final String col : pk) {
+                final String colName = Utils.applyColMap(context, flowFile, tableName, col, toCase);
+                if (i > 0) {
+                	sql.append(" AND ");
+                }
+                sql.append(colName).append(" ");
                 final Object colValue = before.get(col);
                 if (colValue != null) {
-                    String val = colValue.toString().replace("'", "''");
-                    sql += "= '" + val + "'";
+                    final String val = colValue.toString().replace("'", "''");
+                    sql.append("= '").append(val).append("'");
                 } else {
-                    sql += "IS null";
+                    sql.append("IS null");
                 }                    
                 i++;
             }
         }
         
-        if (includeSemicolon) sql += ";";
+        if (includeSemicolon) sql.append(";");
 
         // Output the SQL
         if (attName != null && !attName.isEmpty()) {
-            flowFile = session.putAttribute(flowFile, attName, sql);
+            flowFile = session.putAttribute(flowFile, attName, sql.toString());
         } else {
-        	final String sqlOut = sql;
             flowFile = session.write(flowFile, new OutputStreamCallback() {
             	@Override
                 public void process(final OutputStream outputStream) throws IOException {
-            		outputStream.write(sqlOut.getBytes("UTF-8"));
+            		outputStream.write(sql.toString().getBytes("UTF-8"));
             	}
             });
         }

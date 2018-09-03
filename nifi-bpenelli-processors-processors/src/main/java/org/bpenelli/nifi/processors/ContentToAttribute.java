@@ -46,7 +46,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"content, flowfile, attribute, extract, bpenelli"})
-@CapabilityDescription("Extracts the contents of a FlowFile into a named attribute.")
+@CapabilityDescription("Extracts the contents of a FlowFile into a named attribute, and optionally " +
+	"executes expression language against the extracted content.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="", description="")})
@@ -67,7 +68,7 @@ public class ContentToAttribute extends AbstractProcessor {
     
     public static final PropertyDescriptor EXP_LANG = new PropertyDescriptor.Builder()
         .name("Expression Language")
-        .description("Expression language to apply to the extracted content. Use your \"Attribute Name\" to represent the content in the expression.")
+        .description("Expression language to apply to the extracted content. Use the given \"Attribute Name\" to represent the content in the expression.")
         .required(false)
         .expressionLanguageSupported(true)
         .addValidator(Validator.VALID)
@@ -126,19 +127,14 @@ public class ContentToAttribute extends AbstractProcessor {
             return;
         }
 
-        String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
+        final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final AtomicReference<String> content = new AtomicReference<>();
         
         // Extract the FlowFile's content.
         session.read(flowFile, new InputStreamCallback() {
             @Override
             public void process(InputStream in) throws IOException {
-                try{
-                	content.set(IOUtils.toString(in, java.nio.charset.StandardCharsets.UTF_8));
-                }catch(Exception ex){
-                    ex.printStackTrace();
-                    getLogger().error("Failed to read content.");
-                }
+            	content.set(IOUtils.toString(in, java.nio.charset.StandardCharsets.UTF_8));
             }
         });
         

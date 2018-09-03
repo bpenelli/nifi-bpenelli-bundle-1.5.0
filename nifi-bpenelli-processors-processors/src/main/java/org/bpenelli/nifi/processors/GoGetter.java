@@ -38,8 +38,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import javax.xml.ws.soap.Addressing;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
@@ -69,8 +67,8 @@ import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
-@CapabilityDescription("Retrieves values and builds a JSON object in the FlowFile's content based on a GOG configuration. " +
-	"Values can be optionally retrieved from a cache, using key, or database, using SQL.")
+@CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
+	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="gog.error", description="The exception message for FlowFiles routed to failure.")})
@@ -199,12 +197,12 @@ public class GoGetter extends AbstractProcessor {
         try {
             
         	if (gog.containsKey("extract-to-json")) {
-            	goGetter.get((Map)gog.get("extract-to-json"), "extract-to-json", session, 
+            	GoGetterExtractor.extract((Map)gog.get("extract-to-json"), "extract-to-json", session, 
             			context, flowFile, cacheService, dbcpService);
             }
             
         	if (gog.containsKey("extract-to-attributes")) {
-            	goGetter.get((Map)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
+            	GoGetterExtractor.extract((Map)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
             			context, flowFile, cacheService, dbcpService);
             }
             
@@ -222,9 +220,9 @@ public class GoGetter extends AbstractProcessor {
     }
 
     ///////////////////////////////////////////////////////////////
-    /// goGetter Class
+    /// GoGetterExtractor Class
     ///////////////////////////////////////////////////////////////
-    private static class goGetter { 
+    private static class GoGetterExtractor { 
         
     	final private static Serializer<String> stringSerializer = new Serializer<String>() {
         	@Override
@@ -246,10 +244,10 @@ public class GoGetter extends AbstractProcessor {
         }
 
         /**************************************************************
-         * get
+         * extract
          **************************************************************/
     	@SuppressWarnings("rawtypes")
-		final public static void get (Map<String, Object> gogMap, String gogKey, ProcessSession session,
+		final public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
     		final Map<String, Object> valueMap = new TreeMap<String, Object>();
     		for (final String key : gogMap.keySet()) {
@@ -262,7 +260,7 @@ public class GoGetter extends AbstractProcessor {
 	            		valueMap.put(key, null);
 	            		continue;
 	            	}
-	                result = goGetter.evaluateExpression(context, flowFile, value.toString());
+	                result = GoGetterExtractor.evaluateExpression(context, flowFile, value.toString());
 	                if (((Map) expression).containsKey("default")) {
 	                	final Object itemDefault = ((Map) expression).get("default");
 	                	if (itemDefault != null) defaultValue = itemDefault.toString();
@@ -271,8 +269,8 @@ public class GoGetter extends AbstractProcessor {
 	                switch (valType) {
 	                    case "CACHE_KEY":
 	                        // Get the value from a cache source.
-	                        if (cacheService.containsKey(result, goGetter.stringSerializer)) {
-	                            result = cacheService.get(result, goGetter.stringSerializer, goGetter.stringDeserializer);
+	                        if (cacheService.containsKey(result, GoGetterExtractor.stringSerializer)) {
+	                            result = cacheService.get(result, GoGetterExtractor.stringSerializer, GoGetterExtractor.stringDeserializer);
 	                        } else {
 	                            result = defaultValue;
 	                        }
@@ -286,14 +284,7 @@ public class GoGetter extends AbstractProcessor {
 	                            GroovyRowResult row = sql.firstRow(result);
 	                            if (row != null) {
 	                                final Object col = row.getAt(0);
-	                                if (col instanceof Clob) {
-	                                    Reader stream = ((Clob)col).getCharacterStream();
-	                                    StringWriter writer = new StringWriter();
-	                                    IOUtils.copy(stream, writer);
-	                                    result = writer.toString();
-	                                } else {
-	                                    result = col != null ? col.toString() : defaultValue;
-	                                }
+	                                result = Utils.getColValue(col, defaultValue);
 	                            } else {
 	                                result = defaultValue;
 	                            }
@@ -313,7 +304,7 @@ public class GoGetter extends AbstractProcessor {
 	            		valueMap.put(key, null);
 	            		continue;
 	            	}
-	                result = goGetter.evaluateExpression(context, flowFile, (String)expression);
+	                result = GoGetterExtractor.evaluateExpression(context, flowFile, (String)expression);
 	            }
 	            
 	            // Add the result to our value map.
