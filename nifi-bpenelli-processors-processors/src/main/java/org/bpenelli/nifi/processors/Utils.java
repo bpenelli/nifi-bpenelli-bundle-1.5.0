@@ -53,6 +53,18 @@ public final class Utils {
         return colName;
     }
     
+    /**************************************************************
+    * evaluateExpression
+    **************************************************************/
+    public final static String evaluateExpression(final ProcessContext context, final FlowFile flowFile, final String expression) {
+        PropertyValue newPropVal = context.newPropertyValue(expression);
+        String result = newPropVal.evaluateAttributeExpressions(flowFile).getValue();
+        return result;
+    }
+
+    /**************************************************************
+    * getColValue
+    **************************************************************/
     public final static String getColValue(final Object col, final String defaultValue) throws SQLException, IOException {
         String result = "";
     	if (col instanceof Clob) {
@@ -66,6 +78,9 @@ public final class Utils {
     	return result;
     }
     
+    /**************************************************************
+    * stringSerializer
+    **************************************************************/
     public final static Serializer<String> stringSerializer = new Serializer<String>() {
     	@Override
     	public void serialize(String stringValue, OutputStream out)
@@ -74,6 +89,9 @@ public final class Utils {
     	}
 	};
     
+    /**************************************************************
+    * stringDeserializer
+    **************************************************************/
     public final static Deserializer<String> stringDeserializer = new Deserializer<String>() {
     	@Override
     	public String deserialize(byte[] bytes) throws DeserializationException, IOException {
