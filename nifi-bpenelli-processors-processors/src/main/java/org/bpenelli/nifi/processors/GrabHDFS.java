@@ -204,6 +204,7 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 			
 		// Route the original FlowFile.
 		session.transfer(flowFile, REL_ORIGINAL);
+		session.commit();
 	}
 
     /**************************************************************
@@ -276,7 +277,6 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 					continue;
 				}
 
-				session.getProvenanceReporter().receive(flowFile, file.toString());
 				session.transfer(flowFile, REL_SUCCESS);
 				
 				getLogger().info("Retrieved {} from HDFS {} in {} milliseconds at a rate of {}",

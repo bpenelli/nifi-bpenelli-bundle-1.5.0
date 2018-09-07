@@ -1,12 +1,15 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.SQLException;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -17,6 +20,10 @@ import org.apache.nifi.distributed.cache.client.exception.DeserializationExcepti
 import org.apache.nifi.distributed.cache.client.exception.SerializationException;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
+import org.apache.nifi.processor.ProcessSession;
+import org.apache.nifi.processor.io.InputStreamCallback;
+
+import groovy.json.JsonSlurper;
 
 public final class Utils {
 	
@@ -76,6 +83,20 @@ public final class Utils {
             result = col != null ? col.toString() : defaultValue;
         }
     	return result;
+    }
+    
+    /**************************************************************
+    * readContent
+    **************************************************************/
+    public final static String readContent(final ProcessSession session, final FlowFile flowFile) {
+    	final AtomicReference<String> content = new AtomicReference<String>();
+        session.read(flowFile, new InputStreamCallback() {
+        	@Override
+            public void process(final InputStream inputStream) throws IOException {       		
+        		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
+        	}
+        });
+        return content.toString();
     }
     
     /**************************************************************
