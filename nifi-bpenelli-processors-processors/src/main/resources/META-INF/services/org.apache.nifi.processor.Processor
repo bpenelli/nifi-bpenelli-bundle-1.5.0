@@ -22,3 +22,4 @@ org.bpenelli.nifi.processors.HBaseSequence
 org.bpenelli.nifi.processors.XMLToAttributes
 org.bpenelli.nifi.processors.ConvertJSONToCSV
 org.bpenelli.nifi.processors.InvokeSQL
+org.bpenelli.nifi.processors.GrabHDFS

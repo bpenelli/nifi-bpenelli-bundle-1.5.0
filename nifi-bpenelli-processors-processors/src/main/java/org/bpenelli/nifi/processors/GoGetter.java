@@ -31,6 +31,7 @@ import java.sql.Clob;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -223,28 +224,44 @@ public class GoGetter extends AbstractProcessor {
     	@SuppressWarnings("rawtypes")
 		final public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
+
     		final Map<String, Object> valueMap = new TreeMap<String, Object>();
+    		final Map<String, String> keysAndCacheKeys = new HashMap<String, String>();
+    		final Map<String, String> keysAndTypes = new HashMap<String, String>();
+    		final Map<String, String> keysAndDefaults = new HashMap<String, String>();
+    		
     		for (final String key : gogMap.keySet()) {
-    			final Object expression = gogMap.get(key); 
+
+    			final Object expression = gogMap.get(key);
+    			boolean isCache = false;
 	            String result = "";
 	            String defaultValue = null;
+
 	            if (expression instanceof Map) {
 	            	Object value = ((Map) expression).get("value");
+
 	            	if (value == null) {
 	            		valueMap.put(key, null);
 	            		continue;
 	            	}
-	                result = Utils.evaluateExpression(context, flowFile, value.toString());
+
+	            	result = Utils.evaluateExpression(context, flowFile, value.toString());
+
 	                if (((Map) expression).containsKey("default")) {
 	                	final Object itemDefault = ((Map) expression).get("default");
 	                	if (itemDefault != null) defaultValue = itemDefault.toString();
 	                }
+
 	                final String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
+
 	                switch (valType) {
 	                    case "CACHE_KEY": case "CACHE":
-	                        // Get the value from a cache source.
-	                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
-	                    	if (result == null) result = defaultValue;
+	                    	isCache = true;
+	                    	if (!keysAndTypes.containsKey(result)) {
+	                    		keysAndCacheKeys.put(key, result);
+	                    		keysAndTypes.put(key, null);
+	                    		keysAndDefaults.put(key, defaultValue);
+	                    	}
 	                        break;
 	                    case "SQL":
 	                        Sql sql = null;
@@ -281,45 +298,61 @@ public class GoGetter extends AbstractProcessor {
 	            // Add the result to our value map.
 	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
 	            	final String newType = (String)((Map) expression).get("to-type");
-	            	switch (newType) {
-		            	case "int": 
-		            		valueMap.put(key, Integer.parseInt(result));
-		            		break;
-		            	case "long": 
-		            		valueMap.put(key, Long.parseLong(result));
-		            		break;
-		            	case "float":
-		            		valueMap.put(key, Float.parseFloat(result));
-		            		break;
-		            	case "decimal": case "double": 
-		            		valueMap.put(key, Double.parseDouble(result));
-		            		break;
-		            	case "string": default:
-		            		valueMap.put(key, result);
-		            		break;
+	            	if (isCache) {
+	            		keysAndTypes.put(key, newType);
+	            	} else {
+	            		valueMap.put(key, Utils.convertString(result, newType));
 	            	}
 	            } else {
-	                valueMap.put(key, result);
+	                if (!isCache) valueMap.put(key, result);
 	            }
+	            	            
 	        }
-    		
-	        if (gogKey == "extract-to-json") {
-	            // Build a JSON object for these results and put it in the FlowFile's content.
-	            final JsonBuilder builder = new JsonBuilder();
-	            builder.call(valueMap);
-	            flowFile = session.write(flowFile, new OutputStreamCallback() {
-	            	@Override
-	                public void process(final OutputStream outputStream) throws IOException {
-	            		outputStream.write(builder.toString().getBytes("UTF-8"));
+
+            // Get requested cache values.
+    		if (keysAndCacheKeys.size() > 0) {
+    			Set<String> cacheKeys = new HashSet<String>();
+    			for (String key : keysAndCacheKeys.keySet()) {
+    				cacheKeys.add(keysAndCacheKeys.get(key));
+    			}
+	            Map<String, String> cacheMap = cacheService.subMap(cacheKeys, Utils.stringSerializer, Utils.stringDeserializer);
+	            for (String key : keysAndCacheKeys.keySet()) {
+	            	String cacheKey = keysAndCacheKeys.get(key);
+	            	String newType = keysAndTypes.get(key);
+	            	Object value = keysAndDefaults.get(key);
+	            	String cacheValue = cacheMap.get(cacheKey);
+	            	if (cacheValue != null && cacheValue.length() > 0) {
+		            	if (newType != null) {
+		            		value = Utils.convertString(cacheValue, newType);
+		            	} else {
+			            	value = cacheValue;
+		            	}
+	            	} else if (value != null && value.toString().length() > 0 && newType != null) {
+		            	value = Utils.convertString(value.toString(), newType);
 	            	}
-	            });
-	        }
-	        if (gogKey == "extract-to-attributes") {
-	            // Add FlowFile attributes for these results.
-	            for (final String key : valueMap.keySet()) {
-	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
+	            	valueMap.put(key, value);
 	            }
-	        }
+    		}
+    		
+    		switch (gogKey) {
+    			case "extract-to-json":
+    	            // Build a JSON object for these results and put it in the FlowFile's content.
+    	            final JsonBuilder builder = new JsonBuilder();
+    	            builder.call(valueMap);
+    	            flowFile = session.write(flowFile, new OutputStreamCallback() {
+    	            	@Override
+    	                public void process(final OutputStream outputStream) throws IOException {
+    	            		outputStream.write(builder.toString().getBytes("UTF-8"));
+    	            	}
+    	            });
+    	            break;
+    			case "extract-to-attributes":
+    	            // Add FlowFile attributes for these results.
+    	            for (final String key : valueMap.keySet()) {
+    	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
+    	            }
+    	            break;
+    		}    		
     	}
     }
 }

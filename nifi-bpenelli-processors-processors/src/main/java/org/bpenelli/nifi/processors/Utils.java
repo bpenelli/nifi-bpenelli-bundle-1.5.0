@@ -98,4 +98,29 @@ public final class Utils {
     		return new String(bytes);
     	}	                        	
 	};
+	
+    /**************************************************************
+    * stringDeserializer
+    **************************************************************/
+	public final static Object convertString(final String value, final String newType) {
+    	Object converted = null;
+		switch (newType) {
+	    	case "int": 
+	    		converted = Integer.parseInt(value);
+	    		break;
+	    	case "long": 
+	    		converted = Long.parseLong(value);
+	    		break;
+	    	case "float":
+	    		converted = Float.parseFloat(value);
+	    		break;
+	    	case "decimal": case "double": 
+	    		converted = Double.parseDouble(value);
+	    		break;
+	    	case "string": default:
+	    		converted = value;
+	    		break;
+    	}
+		return converted;
+	}
 }

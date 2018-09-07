@@ -67,7 +67,7 @@ public class InvokeSQL extends AbstractProcessor {
     public static final PropertyDescriptor SQL_TEXT = new PropertyDescriptor.Builder()
         .name("SQL")
         .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
-        .required(true)
+        .required(false)
         .expressionLanguageSupported(true)
         .addValidator(Validator.VALID)
         .build();
