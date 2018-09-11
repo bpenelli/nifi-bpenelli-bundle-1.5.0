@@ -17,8 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -26,20 +24,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
-import org.apache.nifi.distributed.cache.client.Deserializer;
-import org.apache.nifi.distributed.cache.client.Serializer;
-import org.apache.nifi.distributed.cache.client.exception.DeserializationException;
-import org.apache.nifi.distributed.cache.client.exception.SerializationException;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -56,8 +46,6 @@ import org.bpenelli.nifi.services.HBaseMapCacheClient;
 	+ "by rolling back the Session if the sequence value changes between read and update. "
 	+ "Uses a HBaseMapCacheClientService controller to perform operations on HBase.")
 @SeeAlso(classNames = {"org.bpenelli.nifi.services.HBaseMapCacheClientService"})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class HBaseSequence extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -176,9 +164,10 @@ public class HBaseSequence extends AbstractProcessor {
         final HBaseMapCacheClient hbaseService = context.getProperty(HBASE_SVC).asControllerService(HBaseMapCacheClient.class);
 		
 		try {
-			if (hbaseService.containsKey(seqName, Utils.stringSerializer)) {
-				// Read the current sequence value.
-				final String currentValue = hbaseService.get(seqName, Utils.stringSerializer, Utils.stringDeserializer);
+			// Read the current sequence value if any.
+			final String currentValue = hbaseService.get(seqName, Utils.stringSerializer, Utils.stringDeserializer);
+
+			if (currentValue != null) {
 				// Increment the value by the amount of the supplied increment.
 				final String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
 				// Only save if the value hasn't changed since it was read.

@@ -17,8 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import groovy.sql.Sql;
-import java.io.IOException;
-import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -26,9 +24,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -45,12 +40,10 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
 
 @Tags({"invoke, sql, statement, DML, database, bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
 @SeeAlso({})
-//@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="sql.err", description="The SQL error that caused the FlowFile to be sent to failure.")})
 public class InvokeSQL extends AbstractProcessor {
 
@@ -160,14 +153,8 @@ public class InvokeSQL extends AbstractProcessor {
         final Sql sql = new Sql(conn);
 
         if (sqlText == null || sqlText.length() == 0) {
-        	final AtomicReference<String> content = new AtomicReference<String>();
-            session.read(flowFile, new InputStreamCallback() {
-            	@Override
-                public void process(final InputStream inputStream) throws IOException {
-            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
-            	}
-            });
-            sqlText = content.get();        	
+        	// Read content.
+            sqlText = Utils.readContent(session, flowFile).get();        	
         }
         
         final String[] statements = sqlText.split(delimiter);

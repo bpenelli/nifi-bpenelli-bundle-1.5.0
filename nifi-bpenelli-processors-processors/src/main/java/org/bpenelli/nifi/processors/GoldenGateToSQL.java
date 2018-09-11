@@ -17,11 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import groovy.json.JsonSlurper;
-import org.apache.commons.io.IOUtils;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -35,12 +30,6 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
-import org.apache.nifi.processor.io.OutputStreamCallback;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -52,8 +41,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @Tags({"goldengate, sql, trail, json, bpenelli"})
 @CapabilityDescription("Parses an Oracle GoldenGate trail file and builds a corresponding SQL statement.")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class GoldenGateToSQL extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -182,16 +169,9 @@ public class GoldenGateToSQL extends AbstractProcessor {
         if (flowFile == null) return;
         
         final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
-        
-        session.read(flowFile, new InputStreamCallback() {
-        	@Override
-            public void process(final InputStream inputStream) throws IOException {       		
-        		content.set((Map<String, Object>) new JsonSlurper().parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
-        	}
-        });
+        content.set((Map<String, Object>) new JsonSlurper().parseText(Utils.readContent(session, flowFile).get()));
         
         int i = 0;
-        //String sql = "";
         final StringBuilder sql = new StringBuilder();
         final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
         final boolean includeSemicolon = context.getProperty(SEMICOLON).asBoolean();
@@ -307,12 +287,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, sql.toString());
         } else {
-            flowFile = session.write(flowFile, new OutputStreamCallback() {
-            	@Override
-                public void process(final OutputStream outputStream) throws IOException {
-            		outputStream.write(sql.toString().getBytes("UTF-8"));
-            	}
-            });
+        	flowFile = Utils.writeContent(session, flowFile, sql.toString());
         }
         
         // Success!

@@ -18,7 +18,6 @@ package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -35,11 +34,6 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -53,21 +47,18 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-@Tags({"xml, attributes, bpenelli"})
-@CapabilityDescription("Extracts XML elements to FlowFile attributes. " +
-"The XML can come from the FlowFile's content, or a FlowFile attribute. If " + 
-"\"Parse Type\" is table, then a new FlowFile will be generated for each record element. " +
-"If \"Parse Type\" is record, the only one FlowFile will be generated. "+
-"You can also choose to use different names for the attributes when extracted.")
+@Tags({"xml", "attributes", "bpenelli"})
+@CapabilityDescription("Extracts XML elements to FlowFile attributes. The XML can come from the "
+		+ "FlowFile's content, or a FlowFile attribute. If \"Parse Type\" is table, then a new "
+		+ "FlowFile will be generated for each record element. If \"Parse Type\" is record, the "
+		+ "only one FlowFile will be generated. You can also choose to use different names for "
+		+ "the attributes when extracted.")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class XMLToAttributes extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -212,18 +203,13 @@ public class XMLToAttributes extends AbstractProcessor {
         if (flowFile == null) return;
         
         // Get the XML
-        final AtomicReference<String> content = new AtomicReference<String>();
+        AtomicReference<String> content = new AtomicReference<String>();
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String attPrefix = context.getProperty(ATTRIBUTE_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
         if (attName != null && attName.length() > 0) {
             content.set(flowFile.getAttribute(attName));
         } else {
-            session.read(flowFile, new InputStreamCallback() {
-            	@Override
-                public void process(final InputStream inputStream) throws IOException {
-            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
-            	}
-            });
+        	content = Utils.readContent(session, flowFile);
         }
 
         // Extract the XML

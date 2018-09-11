@@ -16,28 +16,20 @@
  */
 package org.bpenelli.nifi.processors;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -49,8 +41,6 @@ import java.util.concurrent.atomic.AtomicReference;
 @CapabilityDescription("Extracts the contents of a FlowFile into a named attribute, and optionally " +
 	"executes expression language against the extracted content.")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class ContentToAttribute extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -128,15 +118,9 @@ public class ContentToAttribute extends AbstractProcessor {
         }
 
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        final AtomicReference<String> content = new AtomicReference<>();
-        
-        // Extract the FlowFile's content.
-        session.read(flowFile, new InputStreamCallback() {
-            @Override
-            public void process(InputStream in) throws IOException {
-            	content.set(IOUtils.toString(in, java.nio.charset.StandardCharsets.UTF_8));
-            }
-        });
+
+        // Read content.
+        AtomicReference<String> content = Utils.readContent(session, flowFile);
         
         // Save content to the named attribute.
         flowFile = session.putAttribute(flowFile, attName, content.get());

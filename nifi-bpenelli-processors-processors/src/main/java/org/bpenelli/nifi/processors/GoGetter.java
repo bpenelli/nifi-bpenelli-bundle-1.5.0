@@ -21,13 +21,6 @@ import static groovy.json.JsonParserType.LAX;
 import groovy.json.JsonSlurper;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.nio.charset.*;
-import java.sql.Clob;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,9 +32,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-import org.apache.commons.io.IOUtils;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -49,14 +39,9 @@ import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
-import org.apache.nifi.distributed.cache.client.Deserializer;
-import org.apache.nifi.distributed.cache.client.Serializer;
-import org.apache.nifi.distributed.cache.client.exception.DeserializationException;
-import org.apache.nifi.distributed.cache.client.exception.SerializationException;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -64,14 +49,11 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
-import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
 	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="gog.error", description="The exception message for FlowFiles routed to failure.")})
 public class GoGetter extends AbstractProcessor {
 
@@ -175,25 +157,18 @@ public class GoGetter extends AbstractProcessor {
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
 
-        String gogConfig = "";
+        AtomicReference<String> gogConfig = new AtomicReference<String>();
 
         // Get the GOG configuration JSON.
         if (gogText != null && !gogText.isEmpty()) {
-            gogConfig = gogText;
+            gogConfig.set(gogText);
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
-            gogConfig = flowFile.getAttribute(gogAtt);
+            gogConfig.set(flowFile.getAttribute(gogAtt));
         } else {
-        	final AtomicReference<String> content = new AtomicReference<String>();
-            session.read(flowFile, new InputStreamCallback() {
-            	@Override
-                public void process(final InputStream inputStream) throws IOException {
-            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
-            	}
-            });
-            gogConfig = content.get();
+        	gogConfig = Utils.readContent(session, flowFile);
         }
 
-        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
+        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig.get());
         
         try {
             
@@ -339,12 +314,7 @@ public class GoGetter extends AbstractProcessor {
     	            // Build a JSON object for these results and put it in the FlowFile's content.
     	            final JsonBuilder builder = new JsonBuilder();
     	            builder.call(valueMap);
-    	            flowFile = session.write(flowFile, new OutputStreamCallback() {
-    	            	@Override
-    	                public void process(final OutputStream outputStream) throws IOException {
-    	            		outputStream.write(builder.toString().getBytes("UTF-8"));
-    	            	}
-    	            });
+    	            flowFile = Utils.writeContent(session, flowFile, builder.toString());
     	            break;
     			case "extract-to-attributes":
     	            // Add FlowFile attributes for these results.

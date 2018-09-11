@@ -8,7 +8,6 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.io.IOUtils;
@@ -22,8 +21,7 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.io.InputStreamCallback;
-
-import groovy.json.JsonSlurper;
+import org.apache.nifi.processor.io.OutputStreamCallback;
 
 public final class Utils {
 	
@@ -61,6 +59,31 @@ public final class Utils {
     }
     
     /**************************************************************
+    * convertString
+    **************************************************************/
+	public final static Object convertString(final String value, final String newType) {
+    	Object converted = null;
+		switch (newType) {
+	    	case "int": 
+	    		converted = Integer.parseInt(value);
+	    		break;
+	    	case "long": 
+	    		converted = Long.parseLong(value);
+	    		break;
+	    	case "float":
+	    		converted = Float.parseFloat(value);
+	    		break;
+	    	case "decimal": case "double": 
+	    		converted = Double.parseDouble(value);
+	    		break;
+	    	case "string": default:
+	    		converted = value;
+	    		break;
+    	}
+		return converted;
+	}
+
+	/**************************************************************
     * evaluateExpression
     **************************************************************/
     public final static String evaluateExpression(final ProcessContext context, final FlowFile flowFile, final String expression) {
@@ -88,7 +111,7 @@ public final class Utils {
     /**************************************************************
     * readContent
     **************************************************************/
-    public final static String readContent(final ProcessSession session, final FlowFile flowFile) {
+    public final static AtomicReference<String> readContent(final ProcessSession session, final FlowFile flowFile) {
     	final AtomicReference<String> content = new AtomicReference<String>();
         session.read(flowFile, new InputStreamCallback() {
         	@Override
@@ -96,7 +119,20 @@ public final class Utils {
         		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
         	}
         });
-        return content.toString();
+        return content;
+    }
+    
+    /**************************************************************
+    * writeContent
+    **************************************************************/
+    public final static FlowFile writeContent(final ProcessSession session, FlowFile flowFile, final String content) {
+        flowFile = session.write(flowFile, new OutputStreamCallback() {
+        	@Override
+            public void process(final OutputStream outputStream) throws IOException {
+        		outputStream.write(content.getBytes("UTF-8"));
+        	}
+        });
+        return flowFile;
     }
     
     /**************************************************************
@@ -118,30 +154,5 @@ public final class Utils {
     	public String deserialize(byte[] bytes) throws DeserializationException, IOException {
     		return new String(bytes);
     	}	                        	
-	};
-	
-    /**************************************************************
-    * stringDeserializer
-    **************************************************************/
-	public final static Object convertString(final String value, final String newType) {
-    	Object converted = null;
-		switch (newType) {
-	    	case "int": 
-	    		converted = Integer.parseInt(value);
-	    		break;
-	    	case "long": 
-	    		converted = Long.parseLong(value);
-	    		break;
-	    	case "float":
-	    		converted = Float.parseFloat(value);
-	    		break;
-	    	case "decimal": case "double": 
-	    		converted = Double.parseDouble(value);
-	    		break;
-	    	case "string": default:
-	    		converted = value;
-	    		break;
-    	}
-		return converted;
-	}
+	};	
 }

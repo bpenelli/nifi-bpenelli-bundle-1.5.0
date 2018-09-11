@@ -22,7 +22,6 @@ import groovy.json.internal.ValueList;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,10 +31,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.io.IOUtils;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -50,14 +45,11 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
-import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"convert, json, csv, schema, bpenelli"})
 @CapabilityDescription("Converts JSON data to CSV data. The JSON must be an object or an array, "
 	+ "if an array, the array elements must be JSON objects or strings that define JSON objects.")
 @SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class ConvertJSONToCSV extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -236,12 +228,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	        }
 	        
 	        // Write CSV to the FlowFile's content.
-            flowFile = session.write(flowFile, new OutputStreamCallback() {
-            	@Override
-                public void process(final OutputStream outputStream) throws IOException {
-            		outputStream.write(csv.toString().getBytes("UTF-8"));
-            	}
-            });
+        	flowFile = Utils.writeContent(session, flowFile, csv.toString());
 	    
             session.transfer(flowFile, REL_SUCCESS);	        
 

@@ -17,17 +17,11 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.apache.nifi.annotation.behavior.ReadsAttribute;
-import org.apache.nifi.annotation.behavior.ReadsAttributes;
-import org.apache.nifi.annotation.behavior.WritesAttribute;
-import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -35,8 +29,6 @@ import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
-import org.apache.nifi.distributed.cache.client.Serializer;
-import org.apache.nifi.distributed.cache.client.exception.SerializationException;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -48,8 +40,6 @@ import org.apache.nifi.processor.exception.ProcessException;
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Releases the Hold on a given topic and key.")
 @SeeAlso(classNames = {"org.bpenelli.nifi.processors.Hold"})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="", description="")})
 public class Release extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
