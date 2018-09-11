@@ -44,9 +44,9 @@ import org.apache.nifi.processor.util.StandardValidators;
 import groovy.json.JsonBuilder;
 
 @Tags({"attributes", "to", "json", "regex", "match", "properties", "bpenelli"})
-@CapabilityDescription("Generates a JSON representation of specified attributes and dynamic properties.")
+@CapabilityDescription("Generates a JSON representation of specified symbols (attributes and dynamic properties).")
 @SeeAlso({})
-public class AttributesToJSON extends AbstractProcessor {
+public class SymbolsToJSON extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")

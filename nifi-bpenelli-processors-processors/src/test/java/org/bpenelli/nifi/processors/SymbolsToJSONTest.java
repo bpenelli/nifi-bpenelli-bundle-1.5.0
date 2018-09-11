@@ -26,7 +26,7 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import static org.junit.Assert.*;
 
-public class AttributesToJSONTest {
+public class SymbolsToJSONTest {
 
     /**
      * Test of onTrigger method, of class AttributesToJSON.
@@ -35,7 +35,7 @@ public class AttributesToJSONTest {
     public void testOnTrigger() throws IOException {
 
     	// Generate a test runner to mock a processor in a flow.
-        TestRunner runner = TestRunners.newTestRunner(new AttributesToJSON());
+        TestRunner runner = TestRunners.newTestRunner(new SymbolsToJSON());
 
         runner.setValidateExpressionUsage(false);
 
@@ -47,10 +47,10 @@ public class AttributesToJSONTest {
     	attributes.put("c", "3");
 
     	// Add properties.
-        runner.setProperty(AttributesToJSON.ATT_PREFIX, "pre.");
-        runner.setProperty(AttributesToJSON.STRIP_PREFIX, "true");
-        runner.setProperty(AttributesToJSON.FILTER_REGEX, "^c$");
-        runner.setProperty(AttributesToJSON.ATT_LIST, "a,d");
+        runner.setProperty(SymbolsToJSON.ATT_PREFIX, "pre.");
+        runner.setProperty(SymbolsToJSON.STRIP_PREFIX, "true");
+        runner.setProperty(SymbolsToJSON.FILTER_REGEX, "^c$");
+        runner.setProperty(SymbolsToJSON.ATT_LIST, "a,d");
 
         // Add the content to the runner.
         runner.enqueue("", attributes);
@@ -62,7 +62,7 @@ public class AttributesToJSONTest {
         runner.assertQueueEmpty();
 
         // If you need to read or do additional tests on results you can access the content.
-        List<MockFlowFile> results = runner.getFlowFilesForRelationship(AttributesToJSON.REL_SUCCESS);
+        List<MockFlowFile> results = runner.getFlowFilesForRelationship(SymbolsToJSON.REL_SUCCESS);
         assertTrue("1 match", results.size() == 1);
         MockFlowFile result = results.get(0);
 
