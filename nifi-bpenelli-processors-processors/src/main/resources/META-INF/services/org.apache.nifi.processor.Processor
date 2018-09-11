@@ -23,4 +23,4 @@ org.bpenelli.nifi.processors.XMLToAttributes
 org.bpenelli.nifi.processors.ConvertJSONToCSV
 org.bpenelli.nifi.processors.InvokeSQL
 org.bpenelli.nifi.processors.GrabHDFS
-org.bpenelli.nifi.processors.AttributesToJSON
+org.bpenelli.nifi.processors.SymbolsToJSON
