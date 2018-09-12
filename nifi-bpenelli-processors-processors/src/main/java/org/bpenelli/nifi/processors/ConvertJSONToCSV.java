@@ -157,18 +157,30 @@ public class ConvertJSONToCSV extends AbstractProcessor {
         final String delim = context.getProperty(DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final boolean headers = context.getProperty(COL_HEADERS).asBoolean();
         final boolean quoted = context.getProperty(QUOTED).asBoolean();
-        final AtomicReference<ValueList> jsonData = new AtomicReference<ValueList>();
-        final String ELEMENT_TYPE_ERROR = "Array elements must contain JSON objects or strings that define JSON objects.";
 
+        final AtomicReference<Object> rawData = new AtomicReference<Object>();
+        AtomicReference<ValueList> jsonData = new AtomicReference<ValueList>(new ValueList(false));
+        final String ELEMENT_TYPE_ERROR = "Array elements must contain JSON objects or strings that define JSON objects.";
+        
     	// Read content.
         session.read(flowFile, new InputStreamCallback() {
         	@Override
             public void process(final InputStream inputStream) throws IOException {
-        		jsonData.set((ValueList) new JsonSlurper().setType(LAX).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
+        		rawData.set(new JsonSlurper().setType(LAX).parseText(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8)));
         	}
         });
-                
-        final Map<String, Object> schemaData = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(schema);
+
+		if (rawData.get() instanceof ValueList) {
+			jsonData.set((ValueList) rawData.get());
+		} else if (rawData.get() instanceof Map) {
+			jsonData.get().add(rawData.get());
+		} else if (rawData.get() instanceof ArrayList) {
+			Utils.writeContent(session, flowFile, "");
+			session.transfer(flowFile, REL_SUCCESS);
+			return;			
+		}
+
+		final Map<String, Object> schemaData = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(schema);
     	final ValueList fieldList = (ValueList) schemaData.get("fields");        
         final StringBuilder csv = new StringBuilder();
         boolean isFirstLine = true;
@@ -201,7 +213,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	        		} else {
 	        			throw new IllegalArgumentException(ELEMENT_TYPE_ERROR);
 	        		}
-        		} else if (rawRecord instanceof Map) {	        	
+        		} else if (rawRecord instanceof Map) {       	
         			record = (Map<String, Object>) rawRecord;
         		} else {
         			throw new IllegalArgumentException(ELEMENT_TYPE_ERROR);

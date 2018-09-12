@@ -23,6 +23,7 @@ import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
@@ -31,6 +32,8 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.processor.util.StandardValidators;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -41,7 +44,9 @@ import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Tags({"goldengate, merge, trail, json, bpenelli"})
-@CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and outputs it as JSON.")
+@CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and "
+		+ "outputs it as JSON. Only op_types \"I\" and \"U\" are supported. FlowFiles with other op_types will be routed "
+		+ "to unsopprted_op_type relationship. Any defined dynamic property will be included in the JSON.")
 @SeeAlso({})
 public class GoldenGateMergeViews extends AbstractProcessor {
 
@@ -137,6 +142,22 @@ public class GoldenGateMergeViews extends AbstractProcessor {
     }
 
     /**************************************************************
+    * getSupportedDynamicPropertyDescriptor
+    **************************************************************/
+    @Override
+    protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
+
+    	PropertyDescriptor.Builder propertyBuilder = new PropertyDescriptor.Builder()
+            .name(propertyDescriptorName)
+            .required(false)
+            .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
+            .expressionLanguageSupported(true)
+            .dynamic(true);
+    	
+    		return propertyBuilder.build();
+    }
+
+    /**************************************************************
     * onScheduled
     **************************************************************/
     @OnScheduled
@@ -164,11 +185,13 @@ public class GoldenGateMergeViews extends AbstractProcessor {
             return;
         }
 
+        // Get property values.
         final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
         final String ggFieldsCSV = context.getProperty(GG_FIELDS).getValue();
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions().getValue();
         final String toCase = context.getProperty(TO_CASE).getValue();
-    	String table = content.get().get("table").toString();
+    	
+        String table = content.get().get("table").toString();
         final String tableName = table.substring(table.indexOf(".") + 1);
         final Map<String, Object> before = (Map<String, Object>) content.get().get("before");
         final Map<String, Object> after = (Map<String, Object>) content.get().get("after");
@@ -191,6 +214,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
                 table = tableName;
             }
         }
+        
         table = Utils.applyCase(table, toCase);
 
         if (ggFields != null && ggFields.length > 0) {
@@ -207,17 +231,27 @@ public class GoldenGateMergeViews extends AbstractProcessor {
 		        }
         	}
     	}
+        
         if (before != null) {
 	        for (final String key : before.keySet()) {
 	        	jsonMap.put(Utils.applyCase(key, toCase), before.get(key));
 	        }
         }
+        
         if (after != null) {
 	        for (final String key : after.keySet()) {
 	        	jsonMap.put(Utils.applyCase(key, toCase), after.get(key));
 	        }
         }
         
+        // Get dynamic properties.
+        for (PropertyDescriptor propDesc : context.getProperties().keySet()) {
+            if (propDesc.isDynamic()) {
+                PropertyValue propVal = context.getProperty(propDesc);
+                jsonMap.put(propDesc.getName(), propVal.evaluateAttributeExpressions(flowFile).getValue());
+            }
+        }
+
         // Build a JSON object for these results and put it in the FlowFile's content.
         final JsonBuilder builder = new JsonBuilder();
         builder.call(jsonMap);

@@ -21,10 +21,12 @@ import static groovy.json.JsonParserType.LAX;
 import groovy.json.JsonSlurper;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +34,9 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+import org.apache.commons.io.IOUtils;
+import org.apache.nifi.annotation.behavior.ReadsAttribute;
+import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -49,11 +54,14 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.processor.io.InputStreamCallback;
+import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
 	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso({})
+@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({@WritesAttribute(attribute="gog.error", description="The exception message for FlowFiles routed to failure.")})
 public class GoGetter extends AbstractProcessor {
 
@@ -157,18 +165,25 @@ public class GoGetter extends AbstractProcessor {
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
 
-        AtomicReference<String> gogConfig = new AtomicReference<String>();
+        String gogConfig = "";
 
         // Get the GOG configuration JSON.
         if (gogText != null && !gogText.isEmpty()) {
-            gogConfig.set(gogText);
+            gogConfig = gogText;
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
-            gogConfig.set(flowFile.getAttribute(gogAtt));
+            gogConfig = flowFile.getAttribute(gogAtt);
         } else {
-        	gogConfig = Utils.readContent(session, flowFile);
+        	final AtomicReference<String> content = new AtomicReference<String>();
+            session.read(flowFile, new InputStreamCallback() {
+            	@Override
+                public void process(final InputStream inputStream) throws IOException {
+            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
+            	}
+            });
+            gogConfig = content.get();
         }
 
-        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig.get());
+        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
         
         try {
             
@@ -201,42 +216,28 @@ public class GoGetter extends AbstractProcessor {
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
 
     		final Map<String, Object> valueMap = new TreeMap<String, Object>();
-    		final Map<String, String> keysAndCacheKeys = new HashMap<String, String>();
-    		final Map<String, String> keysAndTypes = new HashMap<String, String>();
-    		final Map<String, String> keysAndDefaults = new HashMap<String, String>();
     		
     		for (final String key : gogMap.keySet()) {
-
-    			final Object expression = gogMap.get(key);
-    			boolean isCache = false;
+    			final Object expression = gogMap.get(key); 
 	            String result = "";
 	            String defaultValue = null;
-
 	            if (expression instanceof Map) {
 	            	Object value = ((Map) expression).get("value");
-
 	            	if (value == null) {
 	            		valueMap.put(key, null);
 	            		continue;
 	            	}
-
-	            	result = Utils.evaluateExpression(context, flowFile, value.toString());
-
+	                result = Utils.evaluateExpression(context, flowFile, value.toString());
 	                if (((Map) expression).containsKey("default")) {
 	                	final Object itemDefault = ((Map) expression).get("default");
 	                	if (itemDefault != null) defaultValue = itemDefault.toString();
 	                }
-
 	                final String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
-
 	                switch (valType) {
 	                    case "CACHE_KEY": case "CACHE":
-	                    	isCache = true;
-	                    	if (!keysAndTypes.containsKey(result)) {
-	                    		keysAndCacheKeys.put(key, result);
-	                    		keysAndTypes.put(key, null);
-	                    		keysAndDefaults.put(key, defaultValue);
-	                    	}
+	                        // Get the value from a cache source.
+	                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
+	                    	if (result == null) result = defaultValue;
 	                        break;
 	                    case "SQL":
 	                        Sql sql = null;
@@ -273,56 +274,45 @@ public class GoGetter extends AbstractProcessor {
 	            // Add the result to our value map.
 	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
 	            	final String newType = (String)((Map) expression).get("to-type");
-	            	if (isCache) {
-	            		keysAndTypes.put(key, newType);
-	            	} else {
-	            		valueMap.put(key, Utils.convertString(result, newType));
+	            	switch (newType) {
+		            	case "int": 
+		            		valueMap.put(key, Integer.parseInt(result));
+		            		break;
+		            	case "long": 
+		            		valueMap.put(key, Long.parseLong(result));
+		            		break;
+		            	case "float":
+		            		valueMap.put(key, Float.parseFloat(result));
+		            		break;
+		            	case "decimal": case "double": 
+		            		valueMap.put(key, Double.parseDouble(result));
+		            		break;
+		            	case "string": default:
+		            		valueMap.put(key, result);
+		            		break;
 	            	}
 	            } else {
-	                if (!isCache) valueMap.put(key, result);
+	                valueMap.put(key, result);
 	            }
-	            	            
 	        }
-
-            // Get requested cache values.
-    		if (keysAndCacheKeys.size() > 0) {
-    			Set<String> cacheKeys = new HashSet<String>();
-    			for (String key : keysAndCacheKeys.keySet()) {
-    				cacheKeys.add(keysAndCacheKeys.get(key));
-    			}
-	            Map<String, String> cacheMap = cacheService.subMap(cacheKeys, Utils.stringSerializer, Utils.stringDeserializer);
-	            for (String key : keysAndCacheKeys.keySet()) {
-	            	String cacheKey = keysAndCacheKeys.get(key);
-	            	String newType = keysAndTypes.get(key);
-	            	Object value = keysAndDefaults.get(key);
-	            	String cacheValue = cacheMap.get(cacheKey);
-	            	if (cacheValue != null && cacheValue.length() > 0) {
-		            	if (newType != null) {
-		            		value = Utils.convertString(cacheValue, newType);
-		            	} else {
-			            	value = cacheValue;
-		            	}
-	            	} else if (value != null && value.toString().length() > 0 && newType != null) {
-		            	value = Utils.convertString(value.toString(), newType);
-	            	}
-	            	valueMap.put(key, value);
-	            }
-    		}
     		
-    		switch (gogKey) {
-    			case "extract-to-json":
-    	            // Build a JSON object for these results and put it in the FlowFile's content.
-    	            final JsonBuilder builder = new JsonBuilder();
-    	            builder.call(valueMap);
-    	            flowFile = Utils.writeContent(session, flowFile, builder.toString());
-    	            break;
-    			case "extract-to-attributes":
-    	            // Add FlowFile attributes for these results.
-    	            for (final String key : valueMap.keySet()) {
-    	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
-    	            }
-    	            break;
-    		}    		
+	        if (gogKey == "extract-to-json") {
+	            // Build a JSON object for these results and put it in the FlowFile's content.
+	            final JsonBuilder builder = new JsonBuilder();
+	            builder.call(valueMap);
+	            flowFile = session.write(flowFile, new OutputStreamCallback() {
+	            	@Override
+	                public void process(final OutputStream outputStream) throws IOException {
+	            		outputStream.write(builder.toString().getBytes("UTF-8"));
+	            	}
+	            });
+	        }
+	        if (gogKey == "extract-to-attributes") {
+	            // Add FlowFile attributes for these results.
+	            for (final String key : valueMap.keySet()) {
+	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
+	            }
+	        }
     	}
     }
 }

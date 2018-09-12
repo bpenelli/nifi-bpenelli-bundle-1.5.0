@@ -75,12 +75,15 @@ public class GoldenGateMergeViewsTest {
         TestRunner runner = TestRunners.newTestRunner(new GoldenGateMergeViews());
 
         runner.setValidateExpressionUsage(false);
-
+        
         // Add properties.
         runner.setProperty(GoldenGateMergeViews.FORMAT, "JSON");
         runner.setProperty(GoldenGateMergeViews.TO_CASE, "Lower");
         runner.setProperty(GoldenGateMergeViews.SCHEMA, "gg_test");
         runner.setProperty(GoldenGateMergeViews.GG_FIELDS, "table, op_type, op_ts, pos");
+        
+        // Add dynamic properties.
+        runner.setProperty("my_prop", "Hi!");       
         
         // Add the content to the runner.
         runner.enqueue(content);
@@ -98,6 +101,6 @@ public class GoldenGateMergeViewsTest {
 
         // Test attributes and content.
         // result.assertAttributeEquals("test.result", "Hello World!");
-        result.assertContentEquals("{\"created_by\":1156,\"creation_date\":\"2017-09-19 11:16:25\",\"last_update_date\":\"2017-09-22 10:56:35\",\"last_update_login\":333912,\"last_updated_by\":1433,\"name\":\"Name After Update\",\"pk1_id\":1,\"pk2_id\":2,\"pk3_id\":3,\"source_lang\":\"US\",\"table\":\"gg_test.mytable\",\"zd_sync\":\"SYNCED\"}");
+        result.assertContentEquals("{\"created_by\":1156,\"creation_date\":\"2017-09-19 11:16:25\",\"last_update_date\":\"2017-09-22 10:56:35\",\"last_update_login\":333912,\"last_updated_by\":1433,\"my_prop\":\"Hi!\",\"name\":\"Name After Update\",\"pk1_id\":1,\"pk2_id\":2,\"pk3_id\":3,\"source_lang\":\"US\",\"table\":\"gg_test.mytable\",\"zd_sync\":\"SYNCED\"}");
     }
 }
