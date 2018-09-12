@@ -237,7 +237,7 @@ public class GoGetter extends AbstractProcessor {
 	                    case "CACHE_KEY": case "CACHE":
 	                        // Get the value from a cache source.
 	                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
-	                    	if (result == null) result = defaultValue;
+	                    	if (result == null || result.length() == 0) result = defaultValue;
 	                        break;
 	                    case "SQL":
 	                        Sql sql = null;
@@ -274,23 +274,7 @@ public class GoGetter extends AbstractProcessor {
 	            // Add the result to our value map.
 	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
 	            	final String newType = (String)((Map) expression).get("to-type");
-	            	switch (newType) {
-		            	case "int": 
-		            		valueMap.put(key, Integer.parseInt(result));
-		            		break;
-		            	case "long": 
-		            		valueMap.put(key, Long.parseLong(result));
-		            		break;
-		            	case "float":
-		            		valueMap.put(key, Float.parseFloat(result));
-		            		break;
-		            	case "decimal": case "double": 
-		            		valueMap.put(key, Double.parseDouble(result));
-		            		break;
-		            	case "string": default:
-		            		valueMap.put(key, result);
-		            		break;
-	            	}
+	            	valueMap.put(key, Utils.convertString(result, newType));
 	            } else {
 	                valueMap.put(key, result);
 	            }
