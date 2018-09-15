@@ -41,10 +41,10 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 
-@Tags({"invoke, sql, statement, DML, database, bpenelli"})
+@Tags({"invoke", "sql", "statement", "DML", "database", "bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
 @SeeAlso({})
-@WritesAttributes({@WritesAttribute(attribute="sql.err", description="The SQL error that caused the FlowFile to be sent to failure.")})
+@WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
 public class InvokeSQL extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -168,7 +168,7 @@ public class InvokeSQL extends AbstractProcessor {
 			if (blockOnError) {
 				throw new ProcessException(e);
 			} else {
-                flowFile = session.putAttribute(flowFile, "sql.err", e.getMessage());
+                flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
                 session.transfer(flowFile, REL_FAILURE);
 			}
 		} finally {

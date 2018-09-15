@@ -24,3 +24,5 @@ org.bpenelli.nifi.processors.ConvertJSONToCSV
 org.bpenelli.nifi.processors.InvokeSQL
 org.bpenelli.nifi.processors.GrabHDFS
 org.bpenelli.nifi.processors.SymbolsToJSON
+org.bpenelli.nifi.processors.GetSQL
+org.bpenelli.nifi.processors.SQLToCache
