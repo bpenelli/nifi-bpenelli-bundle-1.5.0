@@ -62,6 +62,7 @@ public final class Utils {
     * convertString
     **************************************************************/
 	public final static Object convertString(final String value, final String newType) {
+		if (value == null || newType == null) return value;
     	Object converted = null;
 		switch (newType) {
 	    	case "int": 
@@ -81,6 +82,14 @@ public final class Utils {
 	    		break;
     	}
 		return converted;
+	}
+
+    /**************************************************************
+    * convertString
+    **************************************************************/
+	public final static Object convertString(final Object value, final String newType) {
+		if (value == null || newType == null) return value;
+		return Utils.convertString(value.toString(), newType);
 	}
 
 	/**************************************************************
@@ -125,11 +134,11 @@ public final class Utils {
     /**************************************************************
     * writeContent
     **************************************************************/
-    public final static FlowFile writeContent(final ProcessSession session, FlowFile flowFile, final String content) {
+    public final static FlowFile writeContent(final ProcessSession session, FlowFile flowFile, final Object content) {
         flowFile = session.write(flowFile, new OutputStreamCallback() {
         	@Override
             public void process(final OutputStream outputStream) throws IOException {
-        		outputStream.write(content.getBytes("UTF-8"));
+        		outputStream.write(content.toString().getBytes("UTF-8"));
         	}
         });
         return flowFile;

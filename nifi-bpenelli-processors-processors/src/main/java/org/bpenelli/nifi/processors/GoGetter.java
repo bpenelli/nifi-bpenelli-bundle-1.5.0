@@ -21,9 +21,6 @@ import static groovy.json.JsonParserType.LAX;
 import groovy.json.JsonSlurper;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,9 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicReference;
-
-import org.apache.commons.io.IOUtils;
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -54,8 +48,6 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.io.InputStreamCallback;
-import org.apache.nifi.processor.io.OutputStreamCallback;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
@@ -154,7 +146,7 @@ public class GoGetter extends AbstractProcessor {
     /**************************************************************
     * onTrigger
     **************************************************************/
-    @SuppressWarnings({ "unchecked", "rawtypes" })
+    @SuppressWarnings({ "unchecked" })
 	@Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
@@ -173,27 +165,23 @@ public class GoGetter extends AbstractProcessor {
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
             gogConfig = flowFile.getAttribute(gogAtt);
         } else {
-        	final AtomicReference<String> content = new AtomicReference<String>();
-            session.read(flowFile, new InputStreamCallback() {
-            	@Override
-                public void process(final InputStream inputStream) throws IOException {
-            		content.set(IOUtils.toString(inputStream, java.nio.charset.StandardCharsets.UTF_8));
-            	}
-            });
-            gogConfig = content.get();
+        	gogConfig = Utils.readContent(session, flowFile).get();
         }
 
-        final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
-        
+        // Process GOG.
         try {
-            
-        	if (gog.containsKey("extract-to-json")) {
-            	Extractor.extract((Map)gog.get("extract-to-json"), "extract-to-json", session, 
+
+            final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
+
+            // Process extract-to-attributes.
+        	if (gog.containsKey("extract-to-attributes")) {
+            	Extractor.extract((Map<String, Object>)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
             			context, flowFile, cacheService, dbcpService);
             }
             
-        	if (gog.containsKey("extract-to-attributes")) {
-            	Extractor.extract((Map)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
+        	// Process extract-to-json.
+        	if (gog.containsKey("extract-to-json")) {
+            	Extractor.extract((Map<String, Object>)gog.get("extract-to-json"), "extract-to-json", session, 
             			context, flowFile, cacheService, dbcpService);
             }
             
@@ -211,90 +199,118 @@ public class GoGetter extends AbstractProcessor {
 
     private static class Extractor { 
 
-    	@SuppressWarnings("rawtypes")
+    	@SuppressWarnings({ "unchecked" })
 		final public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
     			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
 
     		final Map<String, Object> valueMap = new TreeMap<String, Object>();
     		
     		for (final String key : gogMap.keySet()) {
+    			
     			final Object expression = gogMap.get(key); 
-	            String result = "";
-	            String defaultValue = null;
-	            if (expression instanceof Map) {
-	            	Object value = ((Map) expression).get("value");
-	            	if (value == null) {
-	            		valueMap.put(key, null);
-	            		continue;
-	            	}
-	                result = Utils.evaluateExpression(context, flowFile, value.toString());
-	                if (((Map) expression).containsKey("default")) {
-	                	final Object itemDefault = ((Map) expression).get("default");
-	                	if (itemDefault != null) defaultValue = itemDefault.toString();
-	                }
-	                final String valType = ((Map) expression).containsKey("type") ? ((Map) expression).get("type").toString() : "";
-	                switch (valType) {
-	                    case "CACHE_KEY": case "CACHE":
-	                        // Get the value from a cache source.
-	                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
-	                    	if (result == null || result.length() == 0) result = defaultValue;
-	                        break;
-	                    case "SQL":
-	                        Sql sql = null;
-	                        // Get the value from a SQL source.
-	                        try {
-	                            Connection conn = dbcpService.getConnection();
-	                            sql = new Sql(conn);
-	                            GroovyRowResult row = sql.firstRow(result);
-	                            if (row != null) {
-	                                final Object col = row.getAt(0);
-	                                result = Utils.getColValue(col, defaultValue);
-	                            } else {
-	                                result = defaultValue;
-	                            }
-	                        } catch (Exception e) {
-	                            throw e;
-	                        } finally {
-	                        	if (sql != null) sql.close();
-	                        }
-	                        break;
-	                    default:
-	                        // Use the literal, or the result of an expression if supplied.
-	                        if (result == null || result.length() == 0) result = defaultValue;
-	                        break;
-	                }                
-	            } else {
+	    
+	            // Handle simple type property.
+	            if (!(expression instanceof Map)) {
 	            	if (expression == null) {
 	            		valueMap.put(key, null);
 	            		continue;
 	            	}
-	                result = Utils.evaluateExpression(context, flowFile, (String)expression);
-	            }
-	            
-	            // Add the result to our value map.
-	            if (expression instanceof Map && result != null && ((Map) expression).containsKey("to-type")) {
-	            	final String newType = (String)((Map) expression).get("to-type");
-	            	valueMap.put(key, Utils.convertString(result, newType));
-	            } else {
+	            	// Evaluate any supplied expression language.
+	                final String result = Utils.evaluateExpression(context, flowFile, expression.toString());
+	                // Add the result to our value map.
 	                valueMap.put(key, result);
+	                continue;
 	            }
+
+	            // Handle complex type property.
+	            Object defaultValue = null;
+	            String result = "";
+	            Map<String, Object> propMap = (Map<String, Object>) expression;
+
+                // Get default property.
+            	if (propMap.containsKey("default")) {
+            		defaultValue = propMap.get("default");
+                }
+            	
+            	// Get to-type property.
+            	String toType = null;
+            	if (propMap.containsKey("to-type")) {
+	            	toType = propMap.get("to-type").toString();
+	            }
+
+	            // Get value property.
+            	Object value = propMap.get("value");
+            	if (value == null || value.toString().isEmpty()) {
+            		valueMap.put(key, Utils.convertString(defaultValue, toType));
+            		continue;
+            	}
+            	
+            	// Get value expression language result.
+                result = Utils.evaluateExpression(context, flowFile, value.toString());
+                
+                // If value result is null or empty then use default value.
+                if (result == null || result.isEmpty()) {
+                	valueMap.put(key, Utils.convertString(defaultValue, toType));
+            		continue;
+                }
+                
+                // Get type property.
+                final String valType = propMap.containsKey("type") ? propMap.get("type").toString() : "";
+
+                // Type handler.
+                switch (valType) {
+                    case "CACHE_KEY": case "CACHE":
+                        // Get the value from a cache source.
+                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
+                    	if (result == null || result.isEmpty()) {
+                    		valueMap.put(key, Utils.convertString(defaultValue, toType));
+    	            		continue;
+                    	}
+                        break;
+                    case "SQL":
+                        Sql sql = null;
+                        // Get the value from a SQL source.
+                        try {
+                            Connection conn = dbcpService.getConnection();
+                            sql = new Sql(conn);
+                            GroovyRowResult row = sql.firstRow(result);
+                            if (row != null) {
+                                final Object col = row.getAt(0);
+                                result = Utils.getColValue(col, null);
+                                if (result == null || result.isEmpty()) {
+                                	valueMap.put(key, Utils.convertString(defaultValue, toType));
+		    	            		continue;
+                                }
+                            } else {
+                            	valueMap.put(key, Utils.convertString(defaultValue, toType));
+	    	            		continue;
+                            }
+                        } catch (Exception e) {
+                            throw e;
+                        } finally {
+                        	if (sql != null) sql.close();
+                        }
+                        break;
+                    default:
+                        // No type specified, so value result is a literal.
+                        break;
+                }                
+
+	            // Add the result to our value map, after any specified type conversion.
+            	valueMap.put(key, Utils.convertString(result, toType));	            
 	        }
-    		
-	        if (gogKey == "extract-to-json") {
+
+    		if (gogKey == "extract-to-json") {
 	            // Build a JSON object for these results and put it in the FlowFile's content.
 	            final JsonBuilder builder = new JsonBuilder();
 	            builder.call(valueMap);
-	            flowFile = session.write(flowFile, new OutputStreamCallback() {
-	            	@Override
-	                public void process(final OutputStream outputStream) throws IOException {
-	            		outputStream.write(builder.toString().getBytes("UTF-8"));
-	            	}
-	            });
+	            Utils.writeContent(session, flowFile, builder);
 	        }
+
 	        if (gogKey == "extract-to-attributes") {
 	            // Add FlowFile attributes for these results.
 	            for (final String key : valueMap.keySet()) {
-	            	flowFile = session.putAttribute(flowFile, key, (String)valueMap.get(key));
+	            	flowFile = session.putAttribute(flowFile, key, valueMap.get(key).toString());
 	            }
 	        }
     	}

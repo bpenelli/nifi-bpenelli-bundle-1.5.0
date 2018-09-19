@@ -19,7 +19,10 @@ package org.bpenelli.nifi.processors;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
@@ -41,11 +44,31 @@ public class GoGetterTest {
         runner.setValidateExpressionUsage(false);
 
         // Add properties.
-        runner.setProperty(GoGetter.GOG_TEXT, "{\"extract-to-attributes\":{\"test.result\":\"Good!\"},\"extract-to-json\":{\"test.result\":\"Hello World!\",\"test.no\":{\"value\":21020,\"to-type\":\"long\"}}}");
-        //runner.setProperty(GoGetter.GOG_TEXT, "{\"extract-to-attributes\":{\"test.result\":\"Good!\"},\"extract-to-json\":{\"test.result\":null,\"test.no\":{\"value\":null,\"to-type\":\"long\"}}}");
+        runner.setProperty(GoGetter.GOG_TEXT, 
+        		"{"
+        		+ "\"extract-to-attributes\":{"
+        		+ "\"test.result\":\"Good!\""
+        		+ "},"
+        		+ "\"extract-to-json\":{"
+        		+ "\"test.result\":\"Hello World!\","
+        		+ "\"test.no\":{"
+        		+ "\"value\":\"21020\","
+        		+ "\"to-type\":\"long\"},"
+        		+ "\"test.exp\":{"
+        		+ "\"value\":\"${exp}\","
+        		+ "\"to-type\":\"long\"},"
+        		+ "\"null.exp\":{"
+        		+ "\"value\":null,"
+        		+ "\"default\":\"-1\","
+        		+ "\"to-type\":\"long\"}"
+        		+ "}"
+        		+ "}");
 
+    	Map<String, String> attributes = new HashMap<String, String>();
+    	attributes.put("exp", "2");
+        
         // Add the content to the runner.
-        runner.enqueue(content);
+        runner.enqueue(content, attributes);
 
         // Run the enqueued content, it also takes an int = number of contents queued.
         runner.run(1);
@@ -60,7 +83,7 @@ public class GoGetterTest {
 
         // Test attributes and content.
         result.assertAttributeEquals("test.result", "Good!");
-        result.assertContentEquals("{\"test.no\":21020,\"test.result\":\"Hello World!\"}");
+        result.assertContentEquals("{\"null.exp\":-1,\"test.exp\":2,\"test.no\":21020,\"test.result\":\"Hello World!\"}");
     }
 
 }
