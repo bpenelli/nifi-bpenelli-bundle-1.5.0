@@ -26,3 +26,4 @@ org.bpenelli.nifi.processors.GrabHDFS
 org.bpenelli.nifi.processors.SymbolsToJSON
 org.bpenelli.nifi.processors.GetSQL
 org.bpenelli.nifi.processors.SQLToCache
+org.bpenelli.nifi.processors.XMLValidator
