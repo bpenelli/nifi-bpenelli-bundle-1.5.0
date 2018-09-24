@@ -16,12 +16,13 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import org.apache.nifi.annotation.behavior.DynamicRelationship;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -38,8 +39,10 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
-@CapabilityDescription("Allows one FlowFile through for a given topic and key, and holds up the remaining " +
-	"FlowFiles for the same topic and key, until the first one is released by a companion Release processor.")
+@CapabilityDescription("Allows one FlowFile through for a given topic and key, and holds up the remaining "
+	+ "FlowFiles for the same topic and key, until the first one is released by a companion Release processor.")
+@DynamicRelationship(name = "duplicate", description = "FlowFiles are sent to this relationship when a Duplicate Value "
+    + "is supplied and there is a FlowFile with the same Topic, Key, and Duplicate Value already in progress.")
 @SeeAlso(classNames = {"org.bpenelli.nifi.processors.Release"})
 public class Hold extends AbstractProcessor {
 
@@ -53,9 +56,11 @@ public class Hold extends AbstractProcessor {
 		.description("Any FlowFile whose topic and key haven't been released yet")
 		.build();
 
+    public static Relationship REL_DUP = null;
+    
     public static final Relationship REL_FAILURE = new Relationship.Builder()
 		.name("failure")
-		.description("Any FlowFile with an IO exception")
+		.description("Any FlowFile with an exception")
 		.build();
 
     public static final PropertyDescriptor KEY_TOPIC = new PropertyDescriptor.Builder()
@@ -74,6 +79,15 @@ public class Hold extends AbstractProcessor {
         .addValidator(Validator.VALID)
         .build();
 
+    public static final PropertyDescriptor DUP_VALUE = new PropertyDescriptor.Builder()
+            .name("Duplicate Value")
+            .description("If supplied, and if the Topic, Key, and this value match one that's already in progress, "
+            	+ "the FlowFile will be sent to the duplicate relationship.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
         .name("Distributed Map Cache Service")
         .description("The Controller Service providing map cache services.")
@@ -85,6 +99,7 @@ public class Hold extends AbstractProcessor {
                    
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
+    private Set<Relationship> dynamicRelationships;
 
     /**************************************************************
     * init
@@ -94,6 +109,7 @@ public class Hold extends AbstractProcessor {
         final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
         descriptors.add(KEY_TOPIC);
         descriptors.add(KEY_VALUE);
+        descriptors.add(DUP_VALUE);
         descriptors.add(CACHE_SVC);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<Relationship>();
@@ -101,14 +117,42 @@ public class Hold extends AbstractProcessor {
         relationships.add(REL_BUSY);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
+        this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<Relationship>());
     }
 
+    /**************************************************************
+    * onPropertyModified
+    **************************************************************/
+    @Override
+    public void onPropertyModified(final PropertyDescriptor descriptor, final String oldValue, final String newValue) {
+        if (descriptor.equals(DUP_VALUE)) {
+        	if (newValue != null && newValue.length() > 0) {
+	        	final Set<Relationship> dynamicRelationships = new HashSet<>();
+	        	Hold.REL_DUP = new Relationship.Builder()
+					.name("duplicate")
+					.description("Any FlowFile which is determined to be a duplicate")
+					.build();
+	        	dynamicRelationships.add(REL_DUP);
+	        	this.dynamicRelationships = Collections.unmodifiableSet(dynamicRelationships);
+        	} else {
+        		this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<Relationship>());
+        	}
+        }
+    }
+    
     /**************************************************************
     * getRelationships
     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
-        return this.relationships;
+    	final Set<Relationship> allRelationships = new HashSet<>();
+    	for (Relationship item : this.relationships) {
+    		allRelationships.add(item);
+    	}
+    	for (Relationship item : this.dynamicRelationships) {
+    		allRelationships.add(item);
+    	}
+        return Collections.unmodifiableSet(allRelationships);
     }
 
     /**************************************************************
@@ -139,16 +183,24 @@ public class Hold extends AbstractProcessor {
         final String keyTopic = context.getProperty(KEY_TOPIC).evaluateAttributeExpressions(flowFile).getValue();
         final String keyValue = context.getProperty(KEY_VALUE).evaluateAttributeExpressions(flowFile).getValue();
         final String holdKey = keyTopic + "." + keyValue;
+        final String dupValue = context.getProperty(DUP_VALUE).evaluateAttributeExpressions(flowFile).getValue();
+        final boolean checkDup = dupValue != null && dupValue.length() > 0;
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         
 		try {
-			if (cacheService.containsKey(holdKey, Utils.stringSerializer)) {
+			if (checkDup && dupValue.equals(cacheService.get(holdKey, Utils.stringSerializer, Utils.stringDeserializer))) {
+				session.transfer(flowFile, REL_DUP);
+			} else if (cacheService.containsKey(holdKey, Utils.stringSerializer)) {
 		        session.transfer(flowFile, REL_BUSY);
 			} else {
-				cacheService.put(holdKey, "holding", Utils.stringSerializer, Utils.stringSerializer);
-		        session.transfer(flowFile, REL_SUCCESS);
+				if (checkDup) {
+					cacheService.put(holdKey, dupValue, Utils.stringSerializer, Utils.stringSerializer);
+				} else {
+					cacheService.put(holdKey, "!--holding--!", Utils.stringSerializer, Utils.stringSerializer);
+				}
+				session.transfer(flowFile, REL_SUCCESS);
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			session.transfer(flowFile, REL_FAILURE);
 			getLogger().error("Unable to Hold topic and key for {} due to {}", new Object[] {flowFile, e});
 		} finally {
