@@ -19,9 +19,7 @@ package org.bpenelli.nifi.processors;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
 
-import java.io.IOException;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -52,9 +50,15 @@ import org.apache.nifi.processor.exception.ProcessException;
 @WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
 public class GetSQL extends AbstractProcessor {
 
+	// Relationships
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
 		.name("success")
 		.description("Any FlowFile which was successfully created.")
+		.build();
+
+    public static final Relationship REL_EMPTY = new Relationship.Builder()
+		.name("empty")
+		.description("Any FlowFile whose SQL returns an empty result set.")
 		.build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
@@ -62,6 +66,7 @@ public class GetSQL extends AbstractProcessor {
 		.description("Any FlowFile whose SQL failed.")
 		.build();
 
+    // Properties
     public static final PropertyDescriptor SQL_TEXT = new PropertyDescriptor.Builder()
         .name("SQL")
         .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
@@ -72,21 +77,28 @@ public class GetSQL extends AbstractProcessor {
 
     public static final PropertyDescriptor RMV_QUALS = new PropertyDescriptor.Builder()
         .name("Remove Qualifiers")
-        .description("If true, column name qualifiers will be removed from attribute names.")
+        .description("If true, column name qualifiers will not be carried over to attribute names.")
         .required(true)
         .allowableValues("true", "false")
         .defaultValue("false")
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
         .build();
 
-    public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
+	public static final PropertyDescriptor BLOCK_ON_FAILURE = new PropertyDescriptor.Builder()
+		.name("Block on Failure")
+		.description("Determines whether to block flow files from being sent to failure and remain on the input queue.")
+		.required(true)
+		.allowableValues("true", "false")
+		.defaultValue("false")
+		.build();
+
+	public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
         .name("Database Connection Pooling Service")
         .description("The Controller service to use to obtain a database connection.")
         .required(true)
         .identifiesControllerService(DBCPService.class)
         .build();
-        
+
+    // Private Members
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
@@ -98,10 +110,12 @@ public class GetSQL extends AbstractProcessor {
         final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
         descriptors.add(SQL_TEXT);
         descriptors.add(RMV_QUALS);
+        descriptors.add(BLOCK_ON_FAILURE);
         descriptors.add(DBCP_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<Relationship>();
         relationships.add(REL_SUCCESS);
+        relationships.add(REL_EMPTY);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
     }
@@ -141,6 +155,7 @@ public class GetSQL extends AbstractProcessor {
         
         String sqlText = context.getProperty(SQL_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         final boolean removeQuals = context.getProperty(RMV_QUALS).asBoolean();
+        final boolean blockOnFailure = context.getProperty(BLOCK_ON_FAILURE).asBoolean();
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
         final Connection conn = dbcpService.getConnection();
         final Sql sql = new Sql(conn);
@@ -151,17 +166,20 @@ public class GetSQL extends AbstractProcessor {
         }
         
     	try {
-            List<GroovyRowResult> data = sql.rows(sqlText);
-            int fragCount = data.size();
+            final List<GroovyRowResult> data = sql.rows(sqlText);
+            final int fragCount = data.size();
+            if (fragCount == 0) {
+            	session.transfer(flowFile, REL_EMPTY);
+            	return;
+            }
             int fragIndex = 0;
             String fragID = UUID.randomUUID().toString();
             for (GroovyRowResult row : data) {
                 FlowFile newFlowFile = session.create(flowFile);
                 fragIndex++;
                 for (Object key : row.keySet()) {
-                    Object col = row.get(key);
-                    String value;
-                    value = Utils.getColValue(col, "");
+                    final Object col = row.get(key);
+                    final String value = Utils.getColValue(col, "");
                     if (removeQuals) {
                     	newFlowFile = session.putAttribute(newFlowFile, key.toString().replaceFirst("^.*[.]", ""), value);
                     } else {
@@ -174,8 +192,12 @@ public class GetSQL extends AbstractProcessor {
                 session.transfer(newFlowFile, REL_SUCCESS);
             }
             session.remove(flowFile);
-            session.commit();
-		} catch (SQLException | IOException e) {
+		} catch (Exception e) {
+			getLogger().error("Error executing SQL due to {}", new Object[] { e });
+			if (blockOnFailure) {
+				session.rollback();
+				return;
+			}
             flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
 		} finally {

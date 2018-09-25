@@ -194,9 +194,15 @@ public class Hold extends AbstractProcessor {
 		        session.transfer(flowFile, REL_BUSY);
 			} else {
 				if (checkDup) {
-					cacheService.put(holdKey, dupValue, Utils.stringSerializer, Utils.stringSerializer);
+					if (!cacheService.putIfAbsent(holdKey, dupValue, Utils.stringSerializer, Utils.stringSerializer)) {
+						session.rollback();
+						return;
+					}
 				} else {
-					cacheService.put(holdKey, "!--holding--!", Utils.stringSerializer, Utils.stringSerializer);
+					if (!cacheService.putIfAbsent(holdKey, "!--holding--!", Utils.stringSerializer, Utils.stringSerializer)) {
+						session.rollback();
+						return;						
+					}
 				}
 				session.transfer(flowFile, REL_SUCCESS);
 			}
