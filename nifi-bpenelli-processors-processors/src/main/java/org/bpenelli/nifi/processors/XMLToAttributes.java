@@ -55,7 +55,7 @@ import org.xml.sax.SAXException;
 @Tags({"xml", "attributes", "bpenelli"})
 @CapabilityDescription("Extracts XML elements to FlowFile attributes. The XML can come from the "
 		+ "FlowFile's content, or a FlowFile attribute. If \"Parse Type\" is table, then a new "
-		+ "FlowFile will be generated for each record element. If \"Parse Type\" is record, the "
+		+ "FlowFile will be generated for each record element. If \"Parse Type\" is record, then "
 		+ "only one FlowFile will be generated. You can also choose to use different names for "
 		+ "the attributes when extracted.")
 @SeeAlso({})
@@ -137,7 +137,7 @@ public class XMLToAttributes extends AbstractProcessor {
         
     public static final PropertyDescriptor ALWAYS_ADD = new PropertyDescriptor.Builder()
         .name("Always Add")
-        .description("If true an attribute will always be added, as an empty string, for each \"New Name\" regardless if the relevant field-level element exists or not.")
+        .description("If true an attribute will be added for each \"New Name\" regardless if the relevant field-level element exists or not.")
         .required(true)
         .allowableValues("true", "false")
         .defaultValue("true")

@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 @Tags({"goldengate, merge, trail, json, bpenelli"})
 @CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and "
 		+ "outputs it as JSON. Only op_types \"I\" and \"U\" are supported. FlowFiles with other op_types will be routed "
-		+ "to unsopprted_op_type relationship. Any defined dynamic property will be included in the JSON.")
+		+ "to unsupported_op_type relationship. Any defined dynamic property will be included in the JSON.")
 @SeeAlso({})
 public class GoldenGateMergeViews extends AbstractProcessor {
 
