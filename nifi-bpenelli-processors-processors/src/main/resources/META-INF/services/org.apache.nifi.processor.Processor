@@ -27,3 +27,4 @@ org.bpenelli.nifi.processors.SymbolsToJSON
 org.bpenelli.nifi.processors.GetSQL
 org.bpenelli.nifi.processors.SQLToCache
 org.bpenelli.nifi.processors.XMLValidator
+org.bpenelli.nifi.processors.EvaluateXML

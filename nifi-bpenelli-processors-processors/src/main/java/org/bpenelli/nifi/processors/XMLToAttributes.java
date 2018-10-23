@@ -203,10 +203,11 @@ public class XMLToAttributes extends AbstractProcessor {
         if (flowFile == null) return;
         
         // Get the XML
-        AtomicReference<String> content = new AtomicReference<String>();
+        final AtomicReference<String> content;
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String attPrefix = context.getProperty(ATTRIBUTE_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
         if (attName != null && attName.length() > 0) {
+        	content = new AtomicReference<>();
             content.set(flowFile.getAttribute(attName));
         } else {
         	content = Utils.readContent(session, flowFile);
