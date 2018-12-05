@@ -31,7 +31,7 @@
     }, 
     "extract-to-json": { 
         "myCacheValue": { 
-            "type": "CACHE", 
+            "type": "CACHE_KEY", 
             "value": "${myCacheKey}", 
             "default": -1, 
             "to-type": "long" 
@@ -39,6 +39,13 @@
         "myDBValue": { 
             "type": "SQL", 
             "value": "SELECT my_field FROM my_table WHERE rec_id = ${myId}", 
+            "default": null, 
+            "to-type": "string" 
+         }, 
+        "myHBaseValue": { 
+            "type": "HBASE_FILTER", 
+            "value": "PrefixFilter('${empId}') AND RowFilter(=, 'binary:${empId}')",
+            "hbase-table": "employees", 
             "default": null, 
             "to-type": "string" 
          }, 

@@ -92,6 +92,13 @@ public final class Utils {
 		return Utils.convertString(value.toString(), newType);
 	}
 
+    /**************************************************************
+     * deserialize
+     **************************************************************/
+    public final static <T> T deserialize(final byte[] value, final Deserializer<T> deserializer) throws IOException {
+        return deserializer.deserialize(value);
+    }
+
 	/**************************************************************
     * evaluateExpression
     **************************************************************/

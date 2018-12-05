@@ -21,14 +21,12 @@ import static groovy.json.JsonParserType.LAX;
 import groovy.json.JsonSlurper;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
+import groovyjarjarcommonscli.MissingArgumentException;
+
+import java.io.IOException;
 import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
+
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -42,6 +40,10 @@ import org.apache.nifi.components.Validator;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.hbase.HBaseClientService;
+import org.apache.nifi.hbase.scan.Column;
+import org.apache.nifi.hbase.scan.ResultCell;
+import org.apache.nifi.hbase.scan.ResultHandler;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -54,7 +56,11 @@ import org.apache.nifi.processor.exception.ProcessException;
 	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
-@WritesAttributes({@WritesAttribute(attribute="gog.error", description="The exception message for FlowFiles routed to failure.")})
+@WritesAttributes({
+	@WritesAttribute(attribute="gog.failure.reason", description="The reason the FlowFile was sent to failue relationship."),
+	@WritesAttribute(attribute="gog.failure.sql", description="The SQL assigned when the FlowFile was sent to failue relationship."),
+	@WritesAttribute(attribute="gog.failure.hbase.filter", description="The HBase filter expression assigned when the FlowFile was sent to failue relationship.")
+})
 public class GoGetter extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -98,7 +104,14 @@ public class GoGetter extends AbstractProcessor {
         .required(false)
         .identifiesControllerService(DBCPService.class)
         .build();
-        
+
+    public static final PropertyDescriptor HBASE_CLIENT_SERVICE = new PropertyDescriptor.Builder()
+        .name("HBase Client Service")
+        .description("Specifies the HBase Client Controller Service to use for accessing HBase.")
+        .required(false)
+        .identifiesControllerService(HBaseClientService.class)
+        .build();
+
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
@@ -112,6 +125,7 @@ public class GoGetter extends AbstractProcessor {
         descriptors.add(GOG_ATTRIBUTE);
         descriptors.add(CACHE_SVC);
         descriptors.add(DBCP_SERVICE);
+        descriptors.add(HBASE_CLIENT_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<Relationship>();
         relationships.add(REL_SUCCESS);
@@ -156,6 +170,7 @@ public class GoGetter extends AbstractProcessor {
         final String gogText = context.getProperty(GOG_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
+        final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
 
         String gogConfig = "";
 
@@ -176,13 +191,13 @@ public class GoGetter extends AbstractProcessor {
             // Process extract-to-attributes.
         	if (gog.containsKey("extract-to-attributes")) {
             	Extractor.extract((Map<String, Object>)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
-            			context, flowFile, cacheService, dbcpService);
+            			context, flowFile, cacheService, dbcpService, hbaseService);
             }
             
         	// Process extract-to-json.
         	if (gog.containsKey("extract-to-json")) {
             	Extractor.extract((Map<String, Object>)gog.get("extract-to-json"), "extract-to-json", session, 
-            			context, flowFile, cacheService, dbcpService);
+            			context, flowFile, cacheService, dbcpService, hbaseService);
             }
             
         	// Transfer the FlowFile to success.
@@ -191,7 +206,7 @@ public class GoGetter extends AbstractProcessor {
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null) msg = e.toString();
-            flowFile = session.putAttribute(flowFile, "gog.error", msg);
+            flowFile = session.putAttribute(flowFile, "gog.failure.reason", msg);
             session.transfer(flowFile, REL_FAILURE);
         	getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
         }
@@ -201,7 +216,8 @@ public class GoGetter extends AbstractProcessor {
 
     	@SuppressWarnings({ "unchecked" })
 		final public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
-    			ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService, DBCPService dbcpService) throws Exception {
+                                          ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService,
+                                          DBCPService dbcpService, HBaseClientService hbaseService) throws Exception {
 
     		final Map<String, Object> valueMap = new TreeMap<String, Object>();
     		
@@ -267,13 +283,44 @@ public class GoGetter extends AbstractProcessor {
     	            		continue;
                     	}
                         break;
+                    case "HBASE_FILTER": case "HBASE_SCAN": case "HBASE":
+                        // Get the value from a HBase source.
+                        if (!propMap.containsKey("hbase-table")) {
+                        	throw new MissingArgumentException("hbase-table argument missing for " + key);
+                        }
+                        final String hbaseTable = propMap.get("hbase-table").toString();
+                        final String filterExpression = result;
+                        final List<Column> columnsList = new ArrayList<Column>(0);
+                        final HBaseLastValueRowHandler handler = new HBaseLastValueRowHandler();
+                        final long minTime = 0;
+                        try {
+	                        hbaseService.scan(hbaseTable, columnsList, filterExpression, minTime, handler);
+	                        if(handler.numRows() > 1) {
+	                        	throw new IOException("The supplied HBase filter for " + key + " returns more than one row.");    
+	                        }
+	                        if(handler.numRows() == 1) {
+	                        	result = Utils.deserialize(handler.getLastResultBytes(), Utils.stringDeserializer);
+	                        } else {
+	                        	result = null;
+	                        }
+	                        if (result == null || result.isEmpty()) {
+	                            valueMap.put(key, Utils.convertString(defaultValue, toType));
+	                            continue;
+	                        }
+                        } catch (Exception e) {
+                        	flowFile = session.putAttribute(flowFile, "gog.failure.hbase.filter",  filterExpression);
+                        	flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table",  hbaseTable);
+                            throw e;                        	
+                        }
+                        break;
                     case "SQL":
                         Sql sql = null;
+                        final String sqlText = result;
                         // Get the value from a SQL source.
                         try {
                             Connection conn = dbcpService.getConnection();
                             sql = new Sql(conn);
-                            GroovyRowResult row = sql.firstRow(result);
+                            GroovyRowResult row = sql.firstRow(sqlText);
                             if (row != null) {
                                 final Object col = row.getAt(0);
                                 result = Utils.getColValue(col, null);
@@ -286,6 +333,7 @@ public class GoGetter extends AbstractProcessor {
 	    	            		continue;
                             }
                         } catch (Exception e) {
+                        	flowFile = session.putAttribute(flowFile, "gog.failure.sql",  sqlText);                        	
                             throw e;
                         } finally {
                         	if (sql != null) sql.close();
@@ -314,5 +362,25 @@ public class GoGetter extends AbstractProcessor {
 	            }
 	        }
     	}
+
+    }
+}
+
+final class HBaseLastValueRowHandler implements ResultHandler {
+    private int numRows = 0;
+    private byte[] lastResultBytes;
+
+    @Override
+    public void handle(byte[] row, ResultCell[] cells) {
+        numRows += 1;
+        for( final ResultCell cell : cells ){
+            lastResultBytes = Arrays.copyOfRange(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength() + cell.getValueOffset());
+        }
+    }
+    public int numRows() {
+        return numRows;
+    }
+    public byte[] getLastResultBytes() {
+        return lastResultBytes;
     }
 }
