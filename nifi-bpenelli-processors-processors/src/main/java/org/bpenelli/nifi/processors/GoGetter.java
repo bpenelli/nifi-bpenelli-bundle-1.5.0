@@ -57,9 +57,9 @@ import org.apache.nifi.processor.exception.ProcessException;
 @SeeAlso({})
 @ReadsAttributes({@ReadsAttribute(attribute="", description="")})
 @WritesAttributes({
-	@WritesAttribute(attribute="gog.failure.reason", description="The reason the FlowFile was sent to failue relationship."),
-	@WritesAttribute(attribute="gog.failure.sql", description="The SQL assigned when the FlowFile was sent to failue relationship."),
-	@WritesAttribute(attribute="gog.failure.hbase.filter", description="The HBase filter expression assigned when the FlowFile was sent to failue relationship.")
+	@WritesAttribute(attribute="gog.failure.reason", description="The reason the FlowFile was sent to failure relationship."),
+	@WritesAttribute(attribute="gog.failure.sql", description="The SQL assigned when the FlowFile was sent to failure relationship."),
+	@WritesAttribute(attribute="gog.failure.hbase.filter", description="The HBase filter expression assigned when the FlowFile was sent to failure relationship.")
 })
 public class GoGetter extends AbstractProcessor {
 
