@@ -36,6 +36,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Releases the Hold on a given topic and key.")
@@ -141,8 +142,8 @@ public class Release extends AbstractProcessor {
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         
 		try {
-			if (cacheService.containsKey(holdKey, Utils.stringSerializer)) {
-				cacheService.remove(holdKey, Utils.stringSerializer);
+			if (cacheService.containsKey(holdKey, FlowUtils.stringSerializer)) {
+				cacheService.remove(holdKey, FlowUtils.stringSerializer);
 		        session.transfer(flowFile, REL_SUCCESS);
 			} else {
 		        session.transfer(flowFile, REL_MISSING);

@@ -33,6 +33,7 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -174,7 +175,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         
     	// Read the FlowFile's contents in.
         final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
-        content.set((Map<String, Object>) (new JsonSlurper()).parseText(Utils.readContent(session, flowFile).get()));
+        content.set((Map<String, Object>) (new JsonSlurper()).parseText(FlowUtils.readContent(session, flowFile).get()));
 
         // Verify it's a supported op_type, i.e. Insert or Update.
         final String opType = content.get().get("op_type").toString();
@@ -215,7 +216,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
             }
         }
         
-        table = Utils.applyCase(table, toCase);
+        table = FlowUtils.applyCase(table, toCase);
 
         if (ggFields != null && ggFields.length > 0) {
         	for (final String field : ggFields) {
@@ -224,7 +225,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
 			        	Object val = content.get().get(key);
 			        	if (!(val instanceof Map) && !(val instanceof ArrayList)) {
 			        		if (key.equals("table")) val = table;
-			        		jsonMap.put(Utils.applyCase(key, toCase), val);
+			        		jsonMap.put(FlowUtils.applyCase(key, toCase), val);
 			        	}
 			        	break;
 	        		}
@@ -234,13 +235,13 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         
         if (before != null) {
 	        for (final String key : before.keySet()) {
-	        	jsonMap.put(Utils.applyCase(key, toCase), before.get(key));
+	        	jsonMap.put(FlowUtils.applyCase(key, toCase), before.get(key));
 	        }
         }
         
         if (after != null) {
 	        for (final String key : after.keySet()) {
-	        	jsonMap.put(Utils.applyCase(key, toCase), after.get(key));
+	        	jsonMap.put(FlowUtils.applyCase(key, toCase), after.get(key));
 	        }
         }
         
@@ -260,7 +261,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, builder.toString());
         } else {
-        	flowFile = Utils.writeContent(session, flowFile, builder.toString());
+        	flowFile = FlowUtils.writeContent(session, flowFile, builder.toString());
         }
         
         // Success!

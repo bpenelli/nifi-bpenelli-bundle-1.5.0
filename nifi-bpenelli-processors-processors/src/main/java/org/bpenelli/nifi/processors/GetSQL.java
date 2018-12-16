@@ -43,6 +43,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"get", "sql", "statement", "query", "database", "bpenelli"})
 @CapabilityDescription("Creates a FlowFile for each row returned from a SQL query with an attribute added for each field.")
@@ -162,7 +163,7 @@ public class GetSQL extends AbstractProcessor {
 
         if (sqlText == null || sqlText.length() == 0) {
         	// Read content.
-            sqlText = Utils.readContent(session, flowFile).get();        	
+            sqlText = FlowUtils.readContent(session, flowFile).get();        	
         }
         
     	try {
@@ -179,7 +180,7 @@ public class GetSQL extends AbstractProcessor {
                 fragIndex++;
                 for (Object key : row.keySet()) {
                     final Object col = row.get(key);
-                    final String value = Utils.getColValue(col, "");
+                    final String value = FlowUtils.getColValue(col, "");
                     if (removeQuals) {
                     	newFlowFile = session.putAttribute(newFlowFile, key.toString().replaceFirst("^.*[.]", ""), value);
                     } else {

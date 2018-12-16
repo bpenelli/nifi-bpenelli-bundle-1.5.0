@@ -25,6 +25,7 @@ import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
@@ -120,7 +121,7 @@ public class ContentToAttribute extends AbstractProcessor {
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
 
         // Read content.
-        AtomicReference<String> content = Utils.readContent(session, flowFile);
+        AtomicReference<String> content = FlowUtils.readContent(session, flowFile);
         
         // Save content to the named attribute.
         flowFile = session.putAttribute(flowFile, attName, content.get());

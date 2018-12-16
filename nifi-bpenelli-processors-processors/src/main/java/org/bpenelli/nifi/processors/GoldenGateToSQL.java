@@ -30,6 +30,8 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -169,7 +171,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
         if (flowFile == null) return;
         
         final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
-        content.set((Map<String, Object>) new JsonSlurper().parseText(Utils.readContent(session, flowFile).get()));
+        content.set((Map<String, Object>) new JsonSlurper().parseText(FlowUtils.readContent(session, flowFile).get()));
         
         int i = 0;
         final StringBuilder sql = new StringBuilder();
@@ -199,7 +201,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
                 table = tableName;
             }
         }
-        table = Utils.applyCase(table, toCase);
+        table = FlowUtils.applyCase(table, toCase);
 
         // Build the SQL
         if (opType.equals("I")) {
@@ -208,7 +210,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
             final StringBuilder vals = new StringBuilder("VALUES (");
             sql.append("INSERT INTO ").append(table).append(" ");
             for (String item : (Set<String>)after.keySet() ) {
-                final String colName = Utils.applyColMap(context, flowFile, tableName, item, toCase);
+                final String colName = FlowUtils.applyColMap(context, flowFile, tableName, item, toCase);
                 if (i > 0) {
                     cols.append(", ");
                     vals.append(", ");
@@ -242,7 +244,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
                 		}
                 	}
                 	if (!isPk) {
-	                    final String colName = Utils.applyColMap(context, flowFile, tableName, col, toCase);
+	                    final String colName = FlowUtils.applyColMap(context, flowFile, tableName, col, toCase);
 	                    if (i > 0) {
 	                    	sql.append(", ");
 	                    }
@@ -265,7 +267,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
             i = 0;
             sql.append(" WHERE ");
             for (final String col : pk) {
-                final String colName = Utils.applyColMap(context, flowFile, tableName, col, toCase);
+                final String colName = FlowUtils.applyColMap(context, flowFile, tableName, col, toCase);
                 if (i > 0) {
                 	sql.append(" AND ");
                 }
@@ -287,7 +289,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, sql.toString());
         } else {
-        	flowFile = Utils.writeContent(session, flowFile, sql.toString());
+        	flowFile = FlowUtils.writeContent(session, flowFile, sql.toString());
         }
         
         // Success!

@@ -40,6 +40,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"invoke", "sql", "statement", "DML", "database", "bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
@@ -154,7 +155,7 @@ public class InvokeSQL extends AbstractProcessor {
 
         if (sqlText == null || sqlText.length() == 0) {
         	// Read content.
-            sqlText = Utils.readContent(session, flowFile).get();        	
+            sqlText = FlowUtils.readContent(session, flowFile).get();        	
         }
         
         final String[] statements = sqlText.split(delimiter);

@@ -44,6 +44,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"sql", "cache", "map", "statement", "query", "database", "bpenelli"})
 @CapabilityDescription("Saves key/value pairs returned from a SQL query to map cache. "
@@ -148,7 +149,7 @@ public class SQLToCache extends AbstractProcessor {
 
         if (sqlText == null || sqlText.length() == 0) {
         	// Read content.
-            sqlText = Utils.readContent(session, flowFile).get();        	
+            sqlText = FlowUtils.readContent(session, flowFile).get();        	
         }
         
     	try {
@@ -157,12 +158,12 @@ public class SQLToCache extends AbstractProcessor {
             	Object col0 = row.getAt(0);
             	Object col1 = row.getAt(1);
                 Object col2 = row.getAt(2);
-            	Object key = Utils.getColValue(col0, "");
-            	Object value = Utils.getColValue(col1, "");
-                cacheService.put(key.toString(), value.toString(), Utils.stringSerializer, Utils.stringSerializer);
+            	Object key = FlowUtils.getColValue(col0, "");
+            	Object value = FlowUtils.getColValue(col1, "");
+                cacheService.put(key.toString(), value.toString(), FlowUtils.stringSerializer, FlowUtils.stringSerializer);
                 if (col2 != null) {
-                    key = Utils.getColValue(col2, "");
-                    cacheService.put(key.toString(), value.toString(), Utils.stringSerializer, Utils.stringSerializer);
+                    key = FlowUtils.getColValue(col2, "");
+                    cacheService.put(key.toString(), value.toString(), FlowUtils.stringSerializer, FlowUtils.stringSerializer);
                 }
             }
             session.transfer(flowFile, REL_SUCCESS);

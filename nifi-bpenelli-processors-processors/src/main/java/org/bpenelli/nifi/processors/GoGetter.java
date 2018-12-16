@@ -23,7 +23,6 @@ import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
 import groovyjarjarcommonscli.MissingArgumentException;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.util.*;
 
@@ -41,15 +40,14 @@ import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.hbase.HBaseClientService;
-import org.apache.nifi.hbase.scan.Column;
-import org.apache.nifi.hbase.scan.ResultCell;
-import org.apache.nifi.hbase.scan.ResultHandler;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
+import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
@@ -180,7 +178,7 @@ public class GoGetter extends AbstractProcessor {
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
             gogConfig = flowFile.getAttribute(gogAtt);
         } else {
-        	gogConfig = Utils.readContent(session, flowFile).get();
+        	gogConfig = FlowUtils.readContent(session, flowFile).get();
         }
 
         // Process GOG.
@@ -232,7 +230,7 @@ public class GoGetter extends AbstractProcessor {
 	            		continue;
 	            	}
 	            	// Evaluate any supplied expression language.
-	                final String result = Utils.evaluateExpression(context, flowFile, expression.toString());
+	                final String result = FlowUtils.evaluateExpression(context, flowFile, expression.toString());
 	                // Add the result to our value map.
 	                valueMap.put(key, result);
 	                continue;
@@ -257,16 +255,16 @@ public class GoGetter extends AbstractProcessor {
 	            // Get value property.
             	Object value = propMap.get("value");
             	if (value == null || value.toString().isEmpty()) {
-            		valueMap.put(key, Utils.convertString(defaultValue, toType));
+            		valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
             		continue;
             	}
             	
             	// Get value expression language result.
-                result = Utils.evaluateExpression(context, flowFile, value.toString());
+                result = FlowUtils.evaluateExpression(context, flowFile, value.toString());
                 
                 // If value result is null or empty then use default value.
                 if (result == null || result.isEmpty()) {
-                	valueMap.put(key, Utils.convertString(defaultValue, toType));
+                	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
             		continue;
                 }
                 
@@ -277,9 +275,9 @@ public class GoGetter extends AbstractProcessor {
                 switch (valType) {
                     case "CACHE_KEY": case "CACHE":
                         // Get the value from a cache source.
-                    	result = cacheService.get(result, Utils.stringSerializer, Utils.stringDeserializer);
+                    	result = cacheService.get(result, FlowUtils.stringSerializer, FlowUtils.stringDeserializer);
                     	if (result == null || result.isEmpty()) {
-                    		valueMap.put(key, Utils.convertString(defaultValue, toType));
+                    		valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
     	            		continue;
                     	}
                         break;
@@ -290,21 +288,10 @@ public class GoGetter extends AbstractProcessor {
                         }
                         final String hbaseTable = propMap.get("hbase-table").toString();
                         final String filterExpression = result;
-                        final List<Column> columnsList = new ArrayList<Column>(0);
-                        final HBaseLastValueRowHandler handler = new HBaseLastValueRowHandler();
-                        final long minTime = 0;
                         try {
-	                        hbaseService.scan(hbaseTable, columnsList, filterExpression, minTime, handler);
-	                        if(handler.numRows() > 1) {
-	                        	throw new IOException("The supplied HBase filter for " + key + " returns more than one row.");    
-	                        }
-	                        if(handler.numRows() == 1) {
-	                        	result = Utils.deserialize(handler.getLastResultBytes(), Utils.stringDeserializer);
-	                        } else {
-	                        	result = null;
-	                        }
+                        	result = HBaseUtils.getLastValueByFilter(hbaseService, hbaseTable, filterExpression);
 	                        if (result == null || result.isEmpty()) {
-	                            valueMap.put(key, Utils.convertString(defaultValue, toType));
+	                            valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
 	                            continue;
 	                        }
                         } catch (Exception e) {
@@ -323,13 +310,13 @@ public class GoGetter extends AbstractProcessor {
                             GroovyRowResult row = sql.firstRow(sqlText);
                             if (row != null) {
                                 final Object col = row.getAt(0);
-                                result = Utils.getColValue(col, null);
+                                result = FlowUtils.getColValue(col, null);
                                 if (result == null || result.isEmpty()) {
-                                	valueMap.put(key, Utils.convertString(defaultValue, toType));
+                                	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
 		    	            		continue;
                                 }
                             } else {
-                            	valueMap.put(key, Utils.convertString(defaultValue, toType));
+                            	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
 	    	            		continue;
                             }
                         } catch (Exception e) {
@@ -345,14 +332,14 @@ public class GoGetter extends AbstractProcessor {
                 }                
 
 	            // Add the result to our value map, after any specified type conversion.
-            	valueMap.put(key, Utils.convertString(result, toType));	            
+            	valueMap.put(key, FlowUtils.convertString(result, toType));	            
 	        }
 
     		if (gogKey == "extract-to-json") {
 	            // Build a JSON object for these results and put it in the FlowFile's content.
 	            final JsonBuilder builder = new JsonBuilder();
 	            builder.call(valueMap);
-	            Utils.writeContent(session, flowFile, builder);
+	            FlowUtils.writeContent(session, flowFile, builder);
 	        }
 
 	        if (gogKey == "extract-to-attributes") {
@@ -363,24 +350,5 @@ public class GoGetter extends AbstractProcessor {
 	        }
     	}
 
-    }
-}
-
-final class HBaseLastValueRowHandler implements ResultHandler {
-    private int numRows = 0;
-    private byte[] lastResultBytes;
-
-    @Override
-    public void handle(byte[] row, ResultCell[] cells) {
-        numRows += 1;
-        for( final ResultCell cell : cells ){
-            lastResultBytes = Arrays.copyOfRange(cell.getValueArray(), cell.getValueOffset(), cell.getValueLength() + cell.getValueOffset());
-        }
-    }
-    public int numRows() {
-        return numRows;
-    }
-    public byte[] getLastResultBytes() {
-        return lastResultBytes;
     }
 }

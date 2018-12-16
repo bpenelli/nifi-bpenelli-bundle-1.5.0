@@ -47,6 +47,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.xml.sax.SAXException;
 
 @Tags({"xml", "validate", "xsd", "bpenelli"})
@@ -166,7 +167,7 @@ public class XMLValidator extends AbstractProcessor {
         if (attName != null && attName.length() > 0) {
             content = flowFile.getAttribute(attName);
         } else {
-        	content = Utils.readContent(session, flowFile).get();
+        	content = FlowUtils.readContent(session, flowFile).get();
         }
 
         // Get the XSD source streams.

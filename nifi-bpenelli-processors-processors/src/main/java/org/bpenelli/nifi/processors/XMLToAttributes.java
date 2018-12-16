@@ -47,6 +47,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -210,7 +211,7 @@ public class XMLToAttributes extends AbstractProcessor {
         	content = new AtomicReference<>();
             content.set(flowFile.getAttribute(attName));
         } else {
-        	content = Utils.readContent(session, flowFile);
+        	content = FlowUtils.readContent(session, flowFile);
         }
 
         // Extract the XML

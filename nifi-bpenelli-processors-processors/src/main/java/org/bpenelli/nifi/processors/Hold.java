@@ -37,6 +37,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Allows one FlowFile through for a given topic and key, and holds up the remaining "
@@ -188,18 +189,18 @@ public class Hold extends AbstractProcessor {
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         
 		try {
-			if (checkDup && dupValue.equals(cacheService.get(holdKey, Utils.stringSerializer, Utils.stringDeserializer))) {
+			if (checkDup && dupValue.equals(cacheService.get(holdKey, FlowUtils.stringSerializer, FlowUtils.stringDeserializer))) {
 				session.transfer(flowFile, REL_DUP);
-			} else if (cacheService.containsKey(holdKey, Utils.stringSerializer)) {
+			} else if (cacheService.containsKey(holdKey, FlowUtils.stringSerializer)) {
 		        session.transfer(flowFile, REL_BUSY);
 			} else {
 				if (checkDup) {
-					if (!cacheService.putIfAbsent(holdKey, dupValue, Utils.stringSerializer, Utils.stringSerializer)) {
+					if (!cacheService.putIfAbsent(holdKey, dupValue, FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
 						session.rollback();
 						return;
 					}
 				} else {
-					if (!cacheService.putIfAbsent(holdKey, "!--holding--!", Utils.stringSerializer, Utils.stringSerializer)) {
+					if (!cacheService.putIfAbsent(holdKey, "!--holding--!", FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
 						session.rollback();
 						return;						
 					}

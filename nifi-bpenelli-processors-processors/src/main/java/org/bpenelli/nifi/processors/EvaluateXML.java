@@ -50,6 +50,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
@@ -159,14 +160,14 @@ public class EvaluateXML extends AbstractProcessor {
         } else if (cacheService != null && cacheKey != null && cacheKey.length() > 0) {
         	content = new AtomicReference<>();
             try {
-				content.set(cacheService.get(cacheKey, Utils.stringSerializer, Utils.stringDeserializer));
+				content.set(cacheService.get(cacheKey, FlowUtils.stringSerializer, FlowUtils.stringDeserializer));
 			} catch (IOException e) {
 	            flowFile = session.putAttribute(flowFile, "eval.failure.reason", e.getMessage());
 	            session.transfer(flowFile, REL_FAILURE);
 	            return;
 			}
         } else {
-        	content = Utils.readContent(session, flowFile);
+        	content = FlowUtils.readContent(session, flowFile);
         }
 
         final XPath xpath = XPathFactory.newInstance().newXPath();

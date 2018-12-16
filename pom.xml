@@ -27,8 +27,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-bpenelli-services-api</module>
-        <module>nifi-bpenelli-services-services</module>
         <module>nifi-bpenelli-processors-processors</module>
         <module>nifi-bpenelli-processors-nar</module>
     </modules>

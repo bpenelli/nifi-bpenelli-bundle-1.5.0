@@ -45,6 +45,7 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.io.InputStreamCallback;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 @Tags({"convert, json, csv, schema, bpenelli"})
 @CapabilityDescription("Converts JSON data to CSV data. The JSON must be an object or an array, "
@@ -175,7 +176,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 		} else if (rawData.get() instanceof Map) {
 			jsonData.get().add(rawData.get());
 		} else if (rawData.get() instanceof ArrayList) {
-			Utils.writeContent(session, flowFile, "");
+			FlowUtils.writeContent(session, flowFile, "");
 			session.transfer(flowFile, REL_SUCCESS);
 			return;			
 		}
@@ -240,7 +241,7 @@ public class ConvertJSONToCSV extends AbstractProcessor {
 	        }
 	        
 	        // Write CSV to the FlowFile's content.
-        	flowFile = Utils.writeContent(session, flowFile, csv.toString());
+        	flowFile = FlowUtils.writeContent(session, flowFile, csv.toString());
 	    
             session.transfer(flowFile, REL_SUCCESS);	        
 

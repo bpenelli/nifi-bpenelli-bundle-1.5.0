@@ -40,6 +40,7 @@ import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 import groovy.json.JsonBuilder;
 
@@ -212,7 +213,7 @@ public class SymbolsToJSON extends AbstractProcessor {
         // Build a JSON object from the results and put it in the FlowFile's content.
         final JsonBuilder builder = new JsonBuilder();
         builder.call(valueMap);
-        flowFile = Utils.writeContent(session, flowFile, builder.toString());
+        flowFile = FlowUtils.writeContent(session, flowFile, builder.toString());
         
         // Transfer the FlowFile to success.
         session.transfer(flowFile, REL_SUCCESS);
