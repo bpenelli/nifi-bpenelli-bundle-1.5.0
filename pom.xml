@@ -23,11 +23,11 @@
     </parent>
 
     <groupId>org.bpenelli.nifi</groupId>
-    <artifactId>nifi-bpenelli-processors</artifactId>
+    <artifactId>nifi-bpenelli</artifactId>
     <packaging>pom</packaging>
 
     <modules>
-        <module>nifi-bpenelli-processors-processors</module>
+        <module>nifi-bpenelli-processors</module>
         <module>nifi-bpenelli-processors-nar</module>
     </modules>
 

@@ -18,11 +18,11 @@
 
     <parent>
         <groupId>org.bpenelli.nifi</groupId>
-        <artifactId>nifi-bpenelli-processors</artifactId>
+        <artifactId>nifi-bpenelli</artifactId>
         <version>1.5.0</version>
     </parent>
 
-    <artifactId>nifi-bpenelli-processors-processors</artifactId>
+    <artifactId>nifi-bpenelli-processors</artifactId>
     <packaging>jar</packaging>
     
 <!--     <build> -->
@@ -131,11 +131,6 @@
         	<groupId>org.codehaus.groovy</groupId>
         	<artifactId>groovy-sql</artifactId>
         	<version>2.4.14</version>
-        </dependency>
-        <dependency>
-            <groupId>org.bpenelli.nifi</groupId>
-            <artifactId>nifi-bpenelli-services-services</artifactId>
-            <version>1.5.0</version>
         </dependency>
     </dependencies>
 </project>

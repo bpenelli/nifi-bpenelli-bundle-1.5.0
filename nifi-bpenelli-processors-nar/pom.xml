@@ -18,7 +18,7 @@
 
     <parent>
         <groupId>org.bpenelli.nifi</groupId>
-        <artifactId>nifi-bpenelli-processors</artifactId>
+        <artifactId>nifi-bpenelli</artifactId>
         <version>1.5.0</version>
     </parent>
 
@@ -32,7 +32,7 @@
     <dependencies>
         <dependency>
             <groupId>org.bpenelli.nifi</groupId>
-            <artifactId>nifi-bpenelli-processors-processors</artifactId>
+            <artifactId>nifi-bpenelli-processors</artifactId>
             <version>1.5.0</version>
         </dependency>
     </dependencies>
