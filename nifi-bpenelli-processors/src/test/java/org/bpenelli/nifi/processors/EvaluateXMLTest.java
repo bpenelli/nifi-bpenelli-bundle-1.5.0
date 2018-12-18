@@ -33,6 +33,8 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
+import org.bpenelli.nifi.processors.EvaluateXML;
+
 import static org.junit.Assert.*;
 
 public class EvaluateXMLTest {

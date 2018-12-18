@@ -24,6 +24,8 @@ import java.util.Map;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
+import org.bpenelli.nifi.processors.SymbolsToJSON;
+
 import static org.junit.Assert.*;
 
 public class SymbolsToJSONTest {

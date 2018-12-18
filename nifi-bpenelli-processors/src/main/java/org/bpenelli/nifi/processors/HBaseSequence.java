@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Set;
 
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -47,7 +46,6 @@ import org.bpenelli.nifi.processors.utils.HBaseUtils;
 	+ "to a FlowFile attribute and updates the table. Provides concurrency safeguards "
 	+ "by rolling back the Session if the sequence value changes between read and update. "
 	+ "Uses a HBaseMapCacheClientService controller to perform operations on HBase.")
-@SeeAlso(classNames = {"org.bpenelli.nifi.services.HBaseMapCacheClientService"})
 public class HBaseSequence extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()

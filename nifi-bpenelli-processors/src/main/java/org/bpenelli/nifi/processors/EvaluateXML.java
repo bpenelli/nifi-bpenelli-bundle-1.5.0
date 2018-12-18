@@ -36,7 +36,6 @@ import javax.xml.xpath.XPathFactory;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -58,7 +57,6 @@ import org.xml.sax.SAXException;
 @CapabilityDescription("Extracts values from XML, using XPath, to FlowFile attributes. The source XML can come from the "
 		+ "FlowFile's content, a cache entry, or FlowFile attribute, depending on configuration. XPath expressions "
 		+ "can contain expression language.")
-@SeeAlso({})
 @WritesAttributes({@WritesAttribute(attribute="eval.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
 public class EvaluateXML extends AbstractProcessor {
 

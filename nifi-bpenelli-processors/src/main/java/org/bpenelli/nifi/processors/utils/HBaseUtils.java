@@ -162,10 +162,10 @@ public class HBaseUtils {
     	
 		// Between the get and the putIfAbsent, the value could be deleted or updated.
 		// Logic below takes care of the deleted case but not the updated case.
-		final V got = HBaseUtils.get(hbaseService, tableName, columnFamily, columnQualifier, key, keySerializer, valueDeserializer);
+		final V gotValue = HBaseUtils.get(hbaseService, tableName, columnFamily, columnQualifier, key, keySerializer, valueDeserializer);
 		final boolean wasAbsent = HBaseUtils.putIfAbsent(hbaseService, tableName, columnFamily, columnQualifier, key, value, keySerializer, valueSerializer);
 		
-		if (! wasAbsent) return got; else return null;
+		if (! wasAbsent) return gotValue; else return null;
 	}
 
     /**************************************************************
@@ -217,49 +217,6 @@ public class HBaseUtils {
     }
 
     /**************************************************************
-    * getLastValue
-    **************************************************************/
-    public static <K, V> V getLastValue(final HBaseClientService hbaseService, final String tableName, final K key, 
-    		final Serializer<K> keySerializer, final Deserializer<V> valueDeserializer) throws IOException {
-
-    	final byte[] rowIdBytes = serialize(key, keySerializer);
-    	final HBaseLastValueAsBytesRowHandler handler = new HBaseLastValueAsBytesRowHandler();
-
-    	final List<Column> columnsList = new ArrayList<Column>(0);
-            
-    	hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
-
-    	if (handler.numRows() > 1) {
-		    throw new IOException("Found multiple rows in HBase for key");
-		} else if(handler.numRows() == 1) {
-		    return deserialize(handler.getLastValueBytes(), valueDeserializer);
-		} else {
-		    return null;
-		}
-    }
-
-    /**************************************************************
-    * getLastValue
-    **************************************************************/
-    public static String getLastValue(final HBaseClientService hbaseService, final String tableName, final String key) throws IOException {
-
-    	final byte[] rowIdBytes = serialize(key, FlowUtils.stringSerializer);
-    	final HBaseLastValueAsStringRowHandler handler = new HBaseLastValueAsStringRowHandler();
-
-    	final List<Column> columnsList = new ArrayList<Column>(0);
-            
-    	hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
-
-    	if (handler.numRows() > 1) {
-		    throw new IOException("Found multiple rows in HBase for key");
-		} else if(handler.numRows() == 1) {
-			return handler.getLastValue();
-		} else {
-		    return null;
-		}
-    }
-
-    /**************************************************************
     * getByFilter
     **************************************************************/
     public static String getByFilter(final HBaseClientService hbaseService, final String tableName, 
@@ -281,7 +238,7 @@ public class HBaseUtils {
     }
     
     /**************************************************************
-    * getLastByFilter
+    * getLastValueByFilter
     **************************************************************/
     public static String getLastValueByFilter(final HBaseClientService hbaseService, final String tableName, final String filterExpression) throws IOException {
 
@@ -301,6 +258,22 @@ public class HBaseUtils {
     }
 
     /**************************************************************
+    * scan
+    **************************************************************/
+    public static HBaseResults scan(final HBaseClientService hbaseService, final String tableName, 
+    		final String filterExpression) throws IOException {
+
+    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final long minTime = 0;
+    	final HBaseResultRowHandler handler = new HBaseResultRowHandler();
+
+    	hbaseService.scan(tableName, columnsList, filterExpression, minTime, handler);
+    	HBaseResults results = handler.getResults();
+    	results.tableName = tableName;
+    	return results;
+    }
+
+    /**************************************************************
     * remove
     **************************************************************/
     public static <K> boolean remove(final HBaseClientService hbaseService, final String tableName, 
@@ -316,23 +289,23 @@ public class HBaseUtils {
 }
 
 final class HBaseValueAsStringRowHandler implements ResultHandler {
-    private Map<String, Map<String, Map<String, String>>> rows = new HashMap<String, Map<String, Map<String, String>>>();
+    private final Map<String, Map<String, Map<String, String>>> rows = new HashMap<String, Map<String, Map<String, String>>>();
     private int numRows = 0;
 
     @Override
     public void handle(byte[] row, ResultCell[] resultCells) {
     	numRows += 1;
     	final String rowKey = new String(row);
+    	final Map<String, Map<String, String>> familyMap = new HashMap<String, Map<String, String>>();
+    	final Map<String, String> qualMap = new HashMap<String, String>();
         for( final ResultCell resultCell : resultCells ){
-        	final Map<String, Map<String, String>> familyMap = new HashMap<String, Map<String, String>>();
-        	final Map<String, String> qualMap = new HashMap<String, String>();
         	final String family = new String(Arrays.copyOfRange(resultCell.getFamilyArray(), resultCell.getFamilyOffset(), resultCell.getFamilyLength() + resultCell.getFamilyOffset()));
         	final String qualifier = new String(Arrays.copyOfRange(resultCell.getQualifierArray(), resultCell.getQualifierOffset(), resultCell.getQualifierLength() + resultCell.getQualifierOffset()));
         	final String value = new String(Arrays.copyOfRange(resultCell.getValueArray(), resultCell.getValueOffset(), resultCell.getValueLength() + resultCell.getValueOffset()));
         	qualMap.put(qualifier, value);
         	familyMap.put(family, qualMap);
-        	rows.put(rowKey, familyMap);
         }
+    	rows.put(rowKey, familyMap);
     }
 
     public int numRows() {
@@ -413,5 +386,33 @@ final class HBaseLastValueAsStringRowHandler implements ResultHandler {
     }
     public String getLastValue() {
        return lastValue;
+    }
+}
+
+final class HBaseResultRowHandler implements ResultHandler {
+    private final HBaseResults results = new HBaseResults();
+    private int rowCount = 0;
+
+    @Override
+    public void handle(byte[] resultRow, ResultCell[] resultCells) {
+    	rowCount += 1;
+    	HBaseResultRow row = new HBaseResultRow();
+    	row.setRowKey(resultRow);    	
+        for( final ResultCell resultCell : resultCells ){
+        	HBaseResultCell cell = new HBaseResultCell();
+        	cell.setFamily(Arrays.copyOfRange(resultCell.getFamilyArray(), resultCell.getFamilyOffset(), resultCell.getFamilyLength() + resultCell.getFamilyOffset()));
+        	cell.setName(Arrays.copyOfRange(resultCell.getQualifierArray(), resultCell.getQualifierOffset(), resultCell.getQualifierLength() + resultCell.getQualifierOffset()));        	
+        	cell.setValue(Arrays.copyOfRange(resultCell.getValueArray(), resultCell.getValueOffset(), resultCell.getValueLength() + resultCell.getValueOffset()));
+        	row.cellList.add(cell);
+        }
+        results.rowList.add(row);
+    }
+
+    public int getRowCount() {
+        return rowCount;
+    }
+
+	public HBaseResults getResults() {
+    	return results;
     }
 }

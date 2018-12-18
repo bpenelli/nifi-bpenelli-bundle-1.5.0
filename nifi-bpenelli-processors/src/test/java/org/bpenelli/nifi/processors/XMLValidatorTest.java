@@ -23,6 +23,8 @@ import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
+import org.bpenelli.nifi.processors.XMLValidator;
+
 import static org.junit.Assert.*;
 
 public class XMLValidatorTest {
