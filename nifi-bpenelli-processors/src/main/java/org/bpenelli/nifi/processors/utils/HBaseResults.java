@@ -9,14 +9,24 @@ import org.apache.nifi.processor.Relationship;
 
 public final class HBaseResults {
 	public String rowKeyName = "row_key";
-	public String tableName = "";
+	public String tableName = null;
+	public String lastCellValue = null;
+	public byte[] lastCellValueBytes = null;
 	public ArrayList<HBaseResultRow> rowList = new ArrayList<>();
     public static final String FMT_TBL_FAM_QUAL = "tablename.family.qualifier";
     public static final String FMT_TBL_QUAL = "tablename.qualifier";
     public static final String FMT_FAM_QUAL = "family.qualifier";
     public static final String FMT_QUAL = "qualifier";
     public String emitFormat = FMT_QUAL;
-	
+
+	/**************************************************************
+	 * setLastCellValue
+	 **************************************************************/
+	public void setLastCellValue(byte[] bytes) {
+		this.lastCellValueBytes = bytes;
+		this.lastCellValue = new String(bytes);
+	}
+
     /**************************************************************
     * emitFlowFiles
     **************************************************************/
@@ -41,20 +51,20 @@ public final class HBaseResults {
             			attrName.append(".");
             			attrName.append(cell.family);
             			attrName.append(".");
-            			attrName.append(cell.name);
+            			attrName.append(cell.qualifier);
             			break;
             		case FMT_TBL_QUAL:
             			attrName.append(this.tableName);
             			attrName.append(".");
-            			attrName.append(cell.name);
+            			attrName.append(cell.qualifier);
             			break;	            			
             		case FMT_FAM_QUAL:
             			attrName.append(cell.family);
             			attrName.append(".");
-            			attrName.append(cell.name);
+            			attrName.append(cell.qualifier);
             			break;	            			
             		default:
-            			attrName.append(cell.name);
+            			attrName.append(cell.qualifier);
             			break;	            			
             	}
             	// Add an attribute to the new FlowFile for the cell.

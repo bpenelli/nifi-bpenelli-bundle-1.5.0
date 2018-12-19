@@ -289,7 +289,7 @@ public class GoGetter extends AbstractProcessor {
                         final String hbaseTable = propMap.get("hbase-table").toString();
                         final String filterExpression = result;
                         try {
-                        	result = HBaseUtils.getLastValueByFilter(hbaseService, hbaseTable, filterExpression);
+                        	result = HBaseUtils.getLastCellValueByFilter(hbaseService, hbaseTable, filterExpression);
 	                        if (result == null || result.isEmpty()) {
 	                            valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
 	                            continue;
