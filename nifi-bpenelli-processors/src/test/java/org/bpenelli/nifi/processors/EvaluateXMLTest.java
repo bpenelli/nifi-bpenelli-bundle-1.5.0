@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,13 +35,14 @@ import org.bpenelli.nifi.processors.EvaluateXML;
 
 import static org.junit.Assert.*;
 
+@SuppressWarnings("WeakerAccess")
 public class EvaluateXMLTest {
 
     /**
      * Test of onTrigger method, of class EvaluateXMLTest.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
 
     	// Add content.
     	InputStream content = new ByteArrayInputStream("<root><name>Dude</name></root>".getBytes());
@@ -59,11 +59,11 @@ public class EvaluateXMLTest {
 
     	    @Override
     	    protected void init(final ProcessorInitializationContext context) {
-    	        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+    	        final List<PropertyDescriptor> descriptors = new ArrayList<>();
     	        descriptors.add(ATTRIBUTE_NAME);
     	        descriptors.add(DYN_PROP_1);
     	        this.descriptors = Collections.unmodifiableList(descriptors);
-    	        final Set<Relationship> relationships = new HashSet<Relationship>();
+    	        final Set<Relationship> relationships = new HashSet<>();
     	        relationships.add(REL_SUCCESS);
     	        relationships.add(REL_FAILURE);
     	        this.relationships = Collections.unmodifiableSet(relationships);
@@ -89,7 +89,7 @@ public class EvaluateXMLTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(EvaluateXML.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);	
+		assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes

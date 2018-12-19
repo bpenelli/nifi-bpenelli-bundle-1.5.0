@@ -41,6 +41,7 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.HBaseResults;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"get", "hbase", "scan", "filter", "query", "bpenelli"})
 @CapabilityDescription("Runs a filtered HBase scan.")
 @WritesAttributes({
@@ -108,14 +109,14 @@ public class ScanHBase extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(TABLE_NAME);
         descriptors.add(ROW_KEY_NAME);
         descriptors.add(FILTER_EXP);
         descriptors.add(ATTR_FORMAT);
         descriptors.add(HBASE_CLIENT_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);

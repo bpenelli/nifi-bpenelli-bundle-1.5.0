@@ -16,7 +16,6 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +33,7 @@ public class SymbolsToJSONTest {
      * Test of onTrigger method, of class AttributesToJSON.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
 
     	// Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new SymbolsToJSON());
@@ -42,7 +41,7 @@ public class SymbolsToJSONTest {
         runner.setValidateExpressionUsage(false);
 
         // Create Attributes.
-    	Map<String, String> attributes = new HashMap<String, String>();
+    	Map<String, String> attributes = new HashMap<>();
     	attributes.put("pre.b", "2");
     	attributes.put("a", "1");
     	attributes.put("d", "4");
@@ -65,7 +64,7 @@ public class SymbolsToJSONTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(SymbolsToJSON.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test content.

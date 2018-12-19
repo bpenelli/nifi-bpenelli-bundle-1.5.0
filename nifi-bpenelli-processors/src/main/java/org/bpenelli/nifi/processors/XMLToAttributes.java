@@ -18,12 +18,7 @@ package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -53,13 +48,14 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"xml", "attributes", "bpenelli"})
 @CapabilityDescription("Extracts XML elements to FlowFile attributes. The XML can come from the "
 		+ "FlowFile's content, or a FlowFile attribute. If \"Parse Type\" is table, then a new "
 		+ "FlowFile will be generated for each record element. If \"Parse Type\" is record, then "
 		+ "only one FlowFile will be generated. You can also choose to use different names for "
 		+ "the attributes when extracted.")
-@SeeAlso({})
+@SeeAlso()
 public class XMLToAttributes extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -154,7 +150,7 @@ public class XMLToAttributes extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(XML_ROOT);
         descriptors.add(PARSE_TYPE);
         descriptors.add(ATTRIBUTE_NAME);
@@ -164,7 +160,7 @@ public class XMLToAttributes extends AbstractProcessor {
         descriptors.add(NEW_NAMES);
         descriptors.add(ALWAYS_ADD);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_ORIGINAL);
         relationships.add(REL_FAILURE);
@@ -217,9 +213,10 @@ public class XMLToAttributes extends AbstractProcessor {
         // Extract the XML
         final StringBuilder rootPath = new StringBuilder(context.getProperty(XML_ROOT).evaluateAttributeExpressions(flowFile).getValue());
         final String parseType = context.getProperty(PARSE_TYPE).getValue();
-        if (parseType == "table") {
+        if (Objects.equals(parseType, "table")) {
         	rootPath.append("/child::*");
         }
+        //noinspection Annotator
         final String delim = "\\" + context.getProperty(NAME_DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final boolean alwaysAdd = context.getProperty(ALWAYS_ADD).asBoolean();
         final XPath xpath = XPathFactory.newInstance().newXPath();
@@ -238,17 +235,13 @@ public class XMLToAttributes extends AbstractProcessor {
         Element doc;
 		try {
 			doc = builder.parse(xmlInputStream).getDocumentElement();
-		} catch (SAXException e) {
-			session.transfer(flowFile, REL_FAILURE);
-			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
-			return;
-		} catch (IOException e) {
+		} catch (SAXException | IOException e) {
 			session.transfer(flowFile, REL_FAILURE);
 			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
 			return;
 		}
 
-		NodeList records;
+        NodeList records;
 		try {
 			records = (NodeList)xpath.evaluate(rootPath.toString(), doc, XPathConstants.NODESET);
 		} catch (XPathExpressionException e) {
@@ -296,7 +289,7 @@ public class XMLToAttributes extends AbstractProcessor {
                 // Check if we need to rename the field
                 for (int renameIndex = 0; renameIndex < renameList.length; renameIndex++) {
                     String value = renameList[renameIndex];
-                    if (value == fieldName) {
+                    if (Objects.equals(value, fieldName)) {
                         if (renameIndex < newNameList.length) {
                             fieldName = newNameList[renameIndex];
                         }
@@ -307,7 +300,7 @@ public class XMLToAttributes extends AbstractProcessor {
                 newFlowFile = session.putAttribute(newFlowFile, fieldName, fieldValue);
             }
             
-            if (parseType == "table") {
+            if (Objects.equals(parseType, "table")) {
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.identifier", fragID);
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.index", Integer.toString(fragIndex));
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.count", Integer.toString(fragCount));

@@ -38,10 +38,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"content, flowfile, attribute, extract, bpenelli"})
 @CapabilityDescription("Extracts the contents of a FlowFile into a named attribute, and optionally " +
 	"executes expression language against the extracted content.")
-@SeeAlso({})
+@SeeAlso()
 public class ContentToAttribute extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -74,12 +75,12 @@ public class ContentToAttribute extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(ATTRIBUTE_NAME);
         descriptors.add(EXP_LANG);
         this.descriptors = Collections.unmodifiableList(descriptors);
 
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         this.relationships = Collections.unmodifiableSet(relationships);
     }

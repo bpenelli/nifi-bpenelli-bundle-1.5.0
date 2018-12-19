@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
@@ -36,7 +35,7 @@ public class GoGetterTest {
      * Test of onTrigger method, of class GoGetter.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
         // Add content.
         InputStream content = new ByteArrayInputStream("Hello World!".getBytes());
 
@@ -66,7 +65,7 @@ public class GoGetterTest {
         		+ "}"
         		+ "}");
 
-    	Map<String, String> attributes = new HashMap<String, String>();
+    	Map<String, String> attributes = new HashMap<>();
     	attributes.put("exp", "2");
         
         // Add the content to the runner.
@@ -80,7 +79,7 @@ public class GoGetterTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoGetter.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+		assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.

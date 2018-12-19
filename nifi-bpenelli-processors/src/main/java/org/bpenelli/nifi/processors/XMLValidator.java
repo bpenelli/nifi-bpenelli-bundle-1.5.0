@@ -50,13 +50,14 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.xml.sax.SAXException;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"xml", "validate", "xsd", "bpenelli"})
 @CapabilityDescription("Validates a FlowFile's XML against one or more XSDs.")
 @WritesAttributes({
 	@WritesAttribute(attribute = "xml.failure.reason", description = "The reason the FlowFile was sent to failue relationship."),
 	@WritesAttribute(attribute = "xml.invalid.reason", description = "The reason the FlowFile was sent to invalid relationship.")
 })
-@SeeAlso({})
+@SeeAlso()
 public class XMLValidator extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -106,12 +107,12 @@ public class XMLValidator extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(XSD_PATH);
         descriptors.add(XSD_TEXT);
         descriptors.add(ATTRIBUTE_NAME);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_INVALID);
         relationships.add(REL_FAILURE);
@@ -156,8 +157,8 @@ public class XMLValidator extends AbstractProcessor {
         final String xsdText = context.getProperty(XSD_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         
         final String content;
-        final List<String> xsdPathList = new ArrayList<String>();;
-        final List<Source> xsdSources = new ArrayList<Source>();
+        final List<String> xsdPathList = new ArrayList<>();
+        final List<Source> xsdSources = new ArrayList<>();
 
         if (xsdPath != null && xsdPath.length() > 0) {
         	xsdPathList.addAll(Arrays.asList(xsdPath.split(",")));
@@ -171,7 +172,7 @@ public class XMLValidator extends AbstractProcessor {
         }
 
         // Get the XSD source streams.
-        if (xsdPathList != null && xsdPathList.size() > 0) {
+        if (xsdPathList.size() > 0) {
             for (String path : xsdPathList) {
                 File xsdFile = new File(path);
                 try {

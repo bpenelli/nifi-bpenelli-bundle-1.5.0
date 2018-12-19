@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
@@ -33,7 +32,7 @@ public class XMLToAttributesTest {
      * Test of onTrigger method, of class XMLToAttributesTest.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
 
     	// Add content.
     	InputStream content = new ByteArrayInputStream("<root><my.name>Dude</my.name></root>".getBytes());
@@ -59,7 +58,7 @@ public class XMLToAttributesTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(XMLToAttributes.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.
@@ -91,14 +90,14 @@ public class XMLToAttributesTest {
 
         // If you need to read or do additional tests on results you can access the content.
         results = runner.getFlowFilesForRelationship(XMLToAttributes.REL_SUCCESS);
-        assertTrue("1 success", results.size() == 1);
+        assertEquals("1 success", 1, results.size());
         result = results.get(0);
 
         // Test attributes and content.
         result.assertAttributeEquals("test.my.name", "Dude");
 
         results = runner.getFlowFilesForRelationship(XMLToAttributes.REL_ORIGINAL);
-        assertTrue("1 original", results.size() == 1);
+        assertEquals("1 original", 1, results.size());
 
     }
 

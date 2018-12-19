@@ -44,11 +44,12 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"goldengate, merge, trail, json, bpenelli"})
 @CapabilityDescription("Merges the before and after views of an Oracle GoldenGate trail file to create a merged view, and "
 		+ "outputs it as JSON. Only op_types \"I\" and \"U\" are supported. FlowFiles with other op_types will be routed "
 		+ "to unsupported_op_type relationship. Any defined dynamic property will be included in the JSON.")
-@SeeAlso({})
+@SeeAlso()
 public class GoldenGateMergeViews extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -113,14 +114,14 @@ public class GoldenGateMergeViews extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(FORMAT);
         descriptors.add(TO_CASE);
         descriptors.add(SCHEMA);
         descriptors.add(GG_FIELDS);
         descriptors.add(ATTRIBUTE_NAME);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_UNSUPPORTED);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -174,7 +175,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         if (flowFile == null) return;
         
     	// Read the FlowFile's contents in.
-        final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
+        final AtomicReference<Map<String, Object>> content = new AtomicReference<>();
         content.set((Map<String, Object>) (new JsonSlurper()).parseText(FlowUtils.readContent(session, flowFile).get()));
 
         // Verify it's a supported op_type, i.e. Insert or Update.
@@ -196,7 +197,7 @@ public class GoldenGateMergeViews extends AbstractProcessor {
         final String tableName = table.substring(table.indexOf(".") + 1);
         final Map<String, Object> before = (Map<String, Object>) content.get().get("before");
         final Map<String, Object> after = (Map<String, Object>) content.get().get("after");
-        final Map<String, Object> jsonMap = new TreeMap<String, Object>();
+        final Map<String, Object> jsonMap = new TreeMap<>();
 
         content.get().remove("primary_keys");
         content.get().remove("before");

@@ -19,7 +19,6 @@ package org.bpenelli.nifi.processors;
 import static org.junit.Assert.*;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -28,13 +27,14 @@ import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.bpenelli.nifi.processors.GoldenGateMergeViews;
 
+@SuppressWarnings("StringBufferReplaceableByString")
 public class GoldenGateMergeViewsTest {
 
     /**
      * Test of onTrigger method, of class GoldenGateMergeViews.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
     	
     	StringBuilder trail = new StringBuilder(); 
     	trail.append("{");
@@ -97,7 +97,7 @@ public class GoldenGateMergeViewsTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoldenGateMergeViews.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+		assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.

@@ -2,10 +2,11 @@ package org.bpenelli.nifi.processors.utils;
 
 import java.util.ArrayList;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultRow {
 	public String rowKey;
 	public byte[] rowKeyBytes;
-	public ArrayList<HBaseResultCell> cellList = new ArrayList<>();
+	public final ArrayList<HBaseResultCell> cellList = new ArrayList<>();
 
 	/**************************************************************
 	 * setRowKey

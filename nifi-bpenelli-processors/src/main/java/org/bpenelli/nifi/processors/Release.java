@@ -38,6 +38,7 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Releases the Hold on a given topic and key.")
 @SeeAlso(classNames = {"org.bpenelli.nifi.processors.Hold"})
@@ -91,12 +92,12 @@ public class Release extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(KEY_TOPIC);
         descriptors.add(KEY_VALUE);
         descriptors.add(CACHE_SVC);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_MISSING);
         relationships.add(REL_FAILURE);

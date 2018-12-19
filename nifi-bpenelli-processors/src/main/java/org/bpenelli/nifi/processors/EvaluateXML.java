@@ -53,6 +53,7 @@ import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"evaluate", "expression language", "xpath", "xml", "bpenelli"})
 @CapabilityDescription("Extracts values from XML, using XPath, to FlowFile attributes. The source XML can come from the "
 		+ "FlowFile's content, a cache entry, or FlowFile attribute, depending on configuration. XPath expressions "
@@ -103,10 +104,10 @@ public class EvaluateXML extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(ATTRIBUTE_NAME);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);

@@ -49,11 +49,12 @@ import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
 	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
-@SeeAlso({})
-@ReadsAttributes({@ReadsAttribute(attribute="", description="")})
+@SeeAlso()
+@ReadsAttributes({@ReadsAttribute(attribute="")})
 @WritesAttributes({
 	@WritesAttribute(attribute="gog.failure.reason", description="The reason the FlowFile was sent to failure relationship."),
 	@WritesAttribute(attribute="gog.failure.sql", description="The SQL assigned when the FlowFile was sent to failure relationship."),
@@ -118,14 +119,14 @@ public class GoGetter extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(GOG_TEXT);
         descriptors.add(GOG_ATTRIBUTE);
         descriptors.add(CACHE_SVC);
         descriptors.add(DBCP_SERVICE);
         descriptors.add(HBASE_CLIENT_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -170,7 +171,7 @@ public class GoGetter extends AbstractProcessor {
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
         final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
 
-        String gogConfig = "";
+        String gogConfig;
 
         // Get the GOG configuration JSON.
         if (gogText != null && !gogText.isEmpty()) {
@@ -213,11 +214,11 @@ public class GoGetter extends AbstractProcessor {
     private static class Extractor { 
 
     	@SuppressWarnings({ "unchecked" })
-		final public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
+        public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
                                           ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService,
                                           DBCPService dbcpService, HBaseClientService hbaseService) throws Exception {
 
-    		final Map<String, Object> valueMap = new TreeMap<String, Object>();
+    		final Map<String, Object> valueMap = new TreeMap<>();
     		
     		for (final String key : gogMap.keySet()) {
     			
@@ -238,7 +239,7 @@ public class GoGetter extends AbstractProcessor {
 
 	            // Handle complex type property.
 	            Object defaultValue = null;
-	            String result = "";
+	            String result;
 	            Map<String, Object> propMap = (Map<String, Object>) expression;
 
                 // Get default property.
@@ -296,7 +297,8 @@ public class GoGetter extends AbstractProcessor {
 	                        }
                         } catch (Exception e) {
                         	flowFile = session.putAttribute(flowFile, "gog.failure.hbase.filter",  filterExpression);
-                        	flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table",  hbaseTable);
+                            //noinspection UnusedAssignment
+                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table",  hbaseTable);
                             throw e;                        	
                         }
                         break;
@@ -320,7 +322,8 @@ public class GoGetter extends AbstractProcessor {
 	    	            		continue;
                             }
                         } catch (Exception e) {
-                        	flowFile = session.putAttribute(flowFile, "gog.failure.sql",  sqlText);                        	
+                            //noinspection UnusedAssignment
+                            flowFile = session.putAttribute(flowFile, "gog.failure.sql",  sqlText);
                             throw e;
                         } finally {
                         	if (sql != null) sql.close();
@@ -335,14 +338,14 @@ public class GoGetter extends AbstractProcessor {
             	valueMap.put(key, FlowUtils.convertString(result, toType));	            
 	        }
 
-    		if (gogKey == "extract-to-json") {
+    		if (Objects.equals(gogKey, "extract-to-json")) {
 	            // Build a JSON object for these results and put it in the FlowFile's content.
 	            final JsonBuilder builder = new JsonBuilder();
 	            builder.call(valueMap);
 	            FlowUtils.writeContent(session, flowFile, builder);
 	        }
 
-	        if (gogKey == "extract-to-attributes") {
+	        if (Objects.equals(gogKey, "extract-to-attributes")) {
 	            // Add FlowFile attributes for these results.
 	            for (final String key : valueMap.keySet()) {
 	            	flowFile = session.putAttribute(flowFile, key, valueMap.get(key).toString());

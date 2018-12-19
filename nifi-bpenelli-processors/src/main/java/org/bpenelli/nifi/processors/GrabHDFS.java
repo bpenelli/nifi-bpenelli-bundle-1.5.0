@@ -58,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @InputRequirement(Requirement.INPUT_REQUIRED)
 @Tags({ "hadoop", "grab", "HDFS", "get", "fetch", "ingest", "source", "filesystem" })
 @CapabilityDescription("Grab files from Hadoop Distributed File System (HDFS) into FlowFiles.")
@@ -149,8 +150,7 @@ public class GrabHDFS extends AbstractHadoopProcessor {
     **************************************************************/
 	@Override
 	protected Collection<ValidationResult> customValidate(ValidationContext context) {
-		final List<ValidationResult> problems = new ArrayList<>(super.customValidate(context));
-		return problems;
+		return new ArrayList<>(super.customValidate(context));
 	}
 
     /**************************************************************
@@ -168,7 +168,7 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 		
 		final FileSystem hdfs = getFileSystem();
 		final Path dir = new Path(context.getProperty(DIRECTORY).evaluateAttributeExpressions(flowFile).getValue());
-		boolean dir_exist = false;
+		boolean dir_exist;
 
 		try {
 			dir_exist = hdfs.exists(dir);
@@ -285,6 +285,7 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 			} catch (final Throwable t) {
 				getLogger().error("Error retrieving file {} from HDFS due to {}", new Object[] { file, t });
 				context.yield();
+				//noinspection UnusedAssignment
 				parentFlowFile = session.putAttribute(parentFlowFile, "hdfs.failure.reason", t.getMessage());
 				return false;
 			} finally {
@@ -308,6 +309,7 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 	* @throws java.io.IOException
 	*             ex
     **************************************************************/
+	@SuppressWarnings("SameParameterValue")
 	protected Set<Path> selectFiles(final FileSystem hdfs, final Path dir, Set<Path> filesVisited)
 			throws IOException, InterruptedException {
 
@@ -358,20 +360,13 @@ public class GrabHDFS extends AbstractHadoopProcessor {
 		}
 
 		protected PathFilter getPathFilter(final Path dir) {
-			return new PathFilter() {
-				@Override
-				public boolean accept(Path path) {
-					if (ignoreDottedFiles && path.getName().startsWith(".")) {
-						return false;
-					}
-					final String pathToCompare;
-					pathToCompare = path.getName();
-					if (fileFilterPattern != null && !fileFilterPattern.matcher(pathToCompare).matches()) {
-						return false;
-					}
-					return true;
+			return path -> {
+				if (ignoreDottedFiles && path.getName().startsWith(".")) {
+					return false;
 				}
-
+				final String pathToCompare;
+				pathToCompare = path.getName();
+				return fileFilterPattern == null || fileFilterPattern.matcher(pathToCompare).matches();
 			};
 		}
 	}

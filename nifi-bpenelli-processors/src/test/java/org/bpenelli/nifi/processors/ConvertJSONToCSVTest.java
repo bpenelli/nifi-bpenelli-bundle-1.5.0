@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
@@ -27,13 +26,14 @@ import org.bpenelli.nifi.processors.ConvertJSONToCSV;
 
 import static org.junit.Assert.*;
 
+@SuppressWarnings("StringBufferReplaceableByString")
 public class ConvertJSONToCSVTest {
 
     /**
      * Test of onTrigger method, of class GoGetter.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
         // Add content.   	
         InputStream content = new ByteArrayInputStream("[\"{\\\"a\\\": 1, \\\"b\\\": \\\"two\\\"}\"]".getBytes());
 
@@ -71,7 +71,7 @@ public class ConvertJSONToCSVTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(ConvertJSONToCSV.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test assertions.

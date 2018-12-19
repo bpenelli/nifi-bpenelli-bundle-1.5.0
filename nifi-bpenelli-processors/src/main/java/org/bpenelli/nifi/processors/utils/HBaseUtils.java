@@ -11,7 +11,10 @@ import org.apache.nifi.hbase.HBaseClientService;
 import org.apache.nifi.hbase.put.PutColumn;
 import org.apache.nifi.hbase.scan.Column;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public class HBaseUtils {
+
+	private HBaseUtils() {}
 
     /**************************************************************
     * serialize
@@ -87,7 +90,7 @@ public class HBaseUtils {
 
 		final byte[] columnFamilyBytes = hbaseService.toBytes(columnFamily);
 		final byte[] columnQualifierBytes = hbaseService.toBytes(columnQualifier);
-		List<PutColumn> putColumns = new ArrayList<PutColumn>(1);
+		List<PutColumn> putColumns = new ArrayList<>(1);
 		final byte[] rowIdBytes = serialize(key, keySerializer);
 		final byte[] valueBytes = serialize(value, valueSerializer);
 		final PutColumn putColumn = new PutColumn(columnFamilyBytes, columnQualifierBytes, valueBytes);
@@ -104,7 +107,7 @@ public class HBaseUtils {
 
 		final byte[] columnFamilyBytes = hbaseService.toBytes(columnFamily);
 		final byte[] columnQualifierBytes = hbaseService.toBytes(columnQualifier);
-		List<PutColumn> putColumns = new ArrayList<PutColumn>(1);
+		List<PutColumn> putColumns = new ArrayList<>(1);
 		final byte[] rowIdBytes = hbaseService.toBytes(key);
 		final byte[] valueBytes = hbaseService.toBytes(value);
 		final PutColumn putColumn = new PutColumn(columnFamilyBytes, columnQualifierBytes, valueBytes);
@@ -121,7 +124,7 @@ public class HBaseUtils {
 
     	final byte[] rowIdBytes = serialize(key, keySerializer);
 		final HBaseResultRowHandler handler = new HBaseResultRowHandler();
-		final List<Column> columnsList = new ArrayList<Column>(0);
+		final List<Column> columnsList = new ArrayList<>(0);
 		
 		hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
 		return (handler.getResults().rowList.size() > 0);
@@ -134,7 +137,7 @@ public class HBaseUtils {
 
     	final byte[] rowIdBytes = hbaseService.toBytes(key);
 		final HBaseResultRowHandler handler = new HBaseResultRowHandler();
-		final List<Column> columnsList = new ArrayList<Column>(0);
+		final List<Column> columnsList = new ArrayList<>(0);
 		hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
 		return (handler.getResults().rowList.size() > 0);
     }
@@ -175,7 +178,7 @@ public class HBaseUtils {
     	final byte[] rowIdBytes = serialize(key, keySerializer);
 		final HBaseResultRowHandler handler = new HBaseResultRowHandler();
 
-    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final List<Column> columnsList = new ArrayList<>(0);
     	Column col = new Column(columnFamilyBytes, columnQualifierBytes);
     	columnsList.add(col);
 		hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
@@ -197,7 +200,7 @@ public class HBaseUtils {
     		final String columnFamily, final String columnQualifier, final String key) throws IOException {
 
     	final byte[] rowIdBytes = hbaseService.toBytes(key);
-    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final List<Column> columnsList = new ArrayList<>(0);
         final HBaseResultRowHandler handler = new HBaseResultRowHandler();
             
     	hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
@@ -218,7 +221,7 @@ public class HBaseUtils {
     public static String getByFilter(final HBaseClientService hbaseService, final String tableName, 
     		final String columnFamily, final String columnQualifier, final String filterExpression) throws IOException {
 
-    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final List<Column> columnsList = new ArrayList<>(0);
     	final long minTime = 0;
         final HBaseResultRowHandler handler = new HBaseResultRowHandler();
             
@@ -240,7 +243,7 @@ public class HBaseUtils {
     public static String getLastCellValueByFilter(final HBaseClientService hbaseService, final String tableName,
             final String filterExpression) throws IOException {
 
-    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final List<Column> columnsList = new ArrayList<>(0);
     	final long minTime = 0;
         final HBaseResultRowHandler handler = new HBaseResultRowHandler();
             
@@ -262,7 +265,7 @@ public class HBaseUtils {
     public static HBaseResults scan(final HBaseClientService hbaseService, final String tableName, 
     		final String filterExpression) throws IOException {
 
-    	final List<Column> columnsList = new ArrayList<Column>(0);
+    	final List<Column> columnsList = new ArrayList<>(0);
     	final long minTime = 0;
     	final HBaseResultRowHandler handler = new HBaseResultRowHandler();
 

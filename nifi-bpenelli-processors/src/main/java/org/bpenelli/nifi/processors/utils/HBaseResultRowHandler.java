@@ -5,6 +5,7 @@ import org.apache.nifi.hbase.scan.ResultHandler;
 
 import java.util.Arrays;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultRowHandler implements ResultHandler {
     private final HBaseResults results = new HBaseResults();
     private int rowCount = 0;

@@ -7,12 +7,13 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.Relationship;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResults {
 	public String rowKeyName = "row_key";
 	public String tableName = null;
 	public String lastCellValue = null;
 	public byte[] lastCellValueBytes = null;
-	public ArrayList<HBaseResultRow> rowList = new ArrayList<>();
+	public final ArrayList<HBaseResultRow> rowList = new ArrayList<>();
     public static final String FMT_TBL_FAM_QUAL = "tablename.family.qualifier";
     public static final String FMT_TBL_QUAL = "tablename.qualifier";
     public static final String FMT_FAM_QUAL = "family.qualifier";

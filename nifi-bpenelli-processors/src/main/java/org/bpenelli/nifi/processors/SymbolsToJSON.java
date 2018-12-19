@@ -44,9 +44,10 @@ import org.bpenelli.nifi.processors.utils.FlowUtils;
 
 import groovy.json.JsonBuilder;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"attributes", "to", "json", "regex", "match", "properties", "bpenelli"})
 @CapabilityDescription("Generates a JSON representation of specified symbols (attributes and dynamic properties).")
-@SeeAlso({})
+@SeeAlso()
 public class SymbolsToJSON extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -103,14 +104,14 @@ public class SymbolsToJSON extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(ATT_PREFIX);
         descriptors.add(STRIP_PREFIX);
         descriptors.add(FILTER_REGEX);
         descriptors.add(ATT_LIST);
         descriptors.add(ATT_DELIM);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         this.relationships = Collections.unmodifiableSet(relationships);
     }
@@ -170,7 +171,7 @@ public class SymbolsToJSON extends AbstractProcessor {
         final String delim = context.getProperty(ATT_DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final String attNames = context.getProperty(ATT_LIST).evaluateAttributeExpressions(flowFile).getValue();
 
-        final Map<String, String> valueMap = new TreeMap<String, String>();
+        final Map<String, String> valueMap = new TreeMap<>();
         
         // Get attributes with the specified prefix.
         if (attPrefix != null && attPrefix.length() > 0) {

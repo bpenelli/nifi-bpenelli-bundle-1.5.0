@@ -42,9 +42,10 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"invoke", "sql", "statement", "DML", "database", "bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
-@SeeAlso({})
+@SeeAlso()
 @WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
 public class InvokeSQL extends AbstractProcessor {
 
@@ -101,13 +102,13 @@ public class InvokeSQL extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SQL_TEXT);
         descriptors.add(DELIM);
         descriptors.add(BLOCK_ON_ERROR);
         descriptors.add(DBCP_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -173,9 +174,7 @@ public class InvokeSQL extends AbstractProcessor {
                 session.transfer(flowFile, REL_FAILURE);
 			}
 		} finally {
-			if (sql != null) {
-				sql.close();
-			}
-		}
+            sql.close();
+        }
 	}
 }

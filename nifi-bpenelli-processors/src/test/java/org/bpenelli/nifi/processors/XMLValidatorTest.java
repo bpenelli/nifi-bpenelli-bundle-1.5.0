@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
@@ -33,7 +32,7 @@ public class XMLValidatorTest {
      * Test of onTrigger method, of class XMLValidatorTest.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
 
     	// Add content.
     	InputStream content = new ByteArrayInputStream("<root><name>Dude</name><age>40</age></root>".getBytes());
@@ -68,6 +67,6 @@ public class XMLValidatorTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(XMLValidator.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+        assertEquals("1 match", 1, results.size());
     }
 }

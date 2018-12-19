@@ -1,5 +1,6 @@
 package org.bpenelli.nifi.processors.utils;
 
+@SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultCell {
 	public String family;
 	public byte[] familyBytes;

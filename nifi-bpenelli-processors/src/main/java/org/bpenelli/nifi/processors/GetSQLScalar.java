@@ -43,6 +43,7 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"get", "sql", "scalar", "query", "database", "bpenelli"})
 @CapabilityDescription("Extracts the value from the first column of the first row returned from a SQL query to a named attribute.")
 @WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
@@ -105,13 +106,13 @@ public class GetSQLScalar extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SQL_TEXT);
         descriptors.add(ATT_NAME);
         descriptors.add(BLOCK_ON_FAILURE);
         descriptors.add(DBCP_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_EMPTY);
         relationships.add(REL_FAILURE);
@@ -182,9 +183,7 @@ public class GetSQLScalar extends AbstractProcessor {
             flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
 		} finally {
-			if (sql != null) {
-				sql.close();
-			}
-		}
+            sql.close();
+        }
 	}
 }

@@ -40,9 +40,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"goldengate, sql, trail, json, bpenelli"})
 @CapabilityDescription("Parses an Oracle GoldenGate trail file and builds a corresponding SQL statement.")
-@SeeAlso({})
+@SeeAlso()
 public class GoldenGateToSQL extends AbstractProcessor {
 
 	public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -124,7 +125,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(FORMAT);
         descriptors.add(TO_CASE);
         descriptors.add(SCHEMA);
@@ -132,7 +133,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
         descriptors.add(ATTRIBUTE_NAME);
         descriptors.add(COLMAP);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         this.relationships = Collections.unmodifiableSet(relationships);
     }
@@ -170,7 +171,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
         
-        final AtomicReference<Map<String, Object>> content = new AtomicReference<Map<String, Object>>();
+        final AtomicReference<Map<String, Object>> content = new AtomicReference<>();
         content.set((Map<String, Object>) new JsonSlurper().parseText(FlowUtils.readContent(session, flowFile).get()));
         
         int i = 0;
@@ -209,7 +210,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
             final StringBuilder cols = new StringBuilder("(");
             final StringBuilder vals = new StringBuilder("VALUES (");
             sql.append("INSERT INTO ").append(table).append(" ");
-            for (String item : (Set<String>)after.keySet() ) {
+            for (String item : after.keySet()) {
                 final String colName = FlowUtils.applyColMap(context, flowFile, tableName, item, toCase);
                 if (i > 0) {
                     cols.append(", ");
@@ -235,7 +236,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
             if (opType.equals("U")) {
                  // Update statement
                 sql.append("UPDATE ").append(table).append(" SET ");
-                for (final String col : (Set<String>)after.keySet() ) {
+                for (final String col : after.keySet()) {
                 	boolean isPk = false; 
                 	for (String p : pk) {
                 		if (col.equals(p)) {

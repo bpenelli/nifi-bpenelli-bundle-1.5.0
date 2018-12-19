@@ -41,6 +41,7 @@ import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"sequence", "auto", "increment", "assign", "cache", "flowfile", "hbase", "bpenelli"})
 @CapabilityDescription("Assigns the next increment of a sequence stored in a HBase table "
 	+ "to a FlowFile attribute and updates the table. Provides concurrency safeguards "
@@ -110,6 +111,7 @@ public class HBaseSequence extends AbstractProcessor {
         .addValidator(StandardValidators.LONG_VALIDATOR)
         .build();
 
+    @SuppressWarnings("WeakerAccess")
     public static final PropertyDescriptor OUT_ATTR = new PropertyDescriptor.Builder()
         .name("Output Attribute")
         .description("The name of the attribute on the FlowFile to write the next Sequence value to.")
@@ -134,7 +136,7 @@ public class HBaseSequence extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(TABLE_NAME);
         descriptors.add(SEQ_NAME);
         descriptors.add(COL_FAMILY);
@@ -144,7 +146,7 @@ public class HBaseSequence extends AbstractProcessor {
         descriptors.add(OUT_ATTR);
         descriptors.add(HBASE_CLIENT_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);

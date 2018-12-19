@@ -17,7 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
@@ -27,13 +26,14 @@ import org.bpenelli.nifi.processors.GoldenGateToSQL;
 
 import static org.junit.Assert.*;
 
+@SuppressWarnings("StringBufferReplaceableByString")
 public class GoldenGateToSQLTest {
 
     /**
      * Test of onTrigger method, of class GoldenGateToSQL.
      */
     @org.junit.Test
-    public void testOnTrigger() throws IOException {
+    public void testOnTrigger() {
     	
     	StringBuilder trail = new StringBuilder(); 
     	trail.append("{");
@@ -92,7 +92,7 @@ public class GoldenGateToSQLTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoldenGateToSQL.REL_SUCCESS);
-        assertTrue("1 match", results.size() == 1);
+		assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.

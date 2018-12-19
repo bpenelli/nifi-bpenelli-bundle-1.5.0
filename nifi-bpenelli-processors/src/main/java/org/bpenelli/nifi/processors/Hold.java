@@ -39,6 +39,7 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"hold, release, topic, key, cache, flowfile, bpenelli"})
 @CapabilityDescription("Allows one FlowFile through for a given topic and key, and holds up the remaining "
 	+ "FlowFiles for the same topic and key, until the first one is released by a companion Release processor.")
@@ -107,18 +108,18 @@ public class Hold extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(KEY_TOPIC);
         descriptors.add(KEY_VALUE);
         descriptors.add(DUP_VALUE);
         descriptors.add(CACHE_SVC);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_BUSY);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
-        this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<Relationship>());
+        this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<>());
     }
 
     /**************************************************************
@@ -136,7 +137,7 @@ public class Hold extends AbstractProcessor {
 	        	dynamicRelationships.add(REL_DUP);
 	        	this.dynamicRelationships = Collections.unmodifiableSet(dynamicRelationships);
         	} else {
-        		this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<Relationship>());
+        		this.dynamicRelationships = Collections.unmodifiableSet(new HashSet<>());
         	}
         }
     }
@@ -147,12 +148,8 @@ public class Hold extends AbstractProcessor {
     @Override
     public Set<Relationship> getRelationships() {
     	final Set<Relationship> allRelationships = new HashSet<>();
-    	for (Relationship item : this.relationships) {
-    		allRelationships.add(item);
-    	}
-    	for (Relationship item : this.dynamicRelationships) {
-    		allRelationships.add(item);
-    	}
+        allRelationships.addAll(this.relationships);
+        allRelationships.addAll(this.dynamicRelationships);
         return Collections.unmodifiableSet(allRelationships);
     }
 

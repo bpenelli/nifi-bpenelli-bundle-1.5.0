@@ -46,12 +46,13 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
+@SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"sql", "cache", "map", "statement", "query", "database", "bpenelli"})
 @CapabilityDescription("Saves key/value pairs returned from a SQL query to map cache. "
 		+ "The value from column 0 will be used for the map cache entry key name, and the value "
 		+ "from column 1 will be used for the map cache entry value. If column 2 is present, "
 		+ "then a second map cache entry key will be updated with the same value as the first.")
-@SeeAlso({})
+@SeeAlso()
 @WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
 public class SQLToCache extends AbstractProcessor {
 
@@ -96,12 +97,12 @@ public class SQLToCache extends AbstractProcessor {
     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
-        final List<PropertyDescriptor> descriptors = new ArrayList<PropertyDescriptor>();
+        final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(SQL_TEXT);
         descriptors.add(DBCP_SERVICE);
         descriptors.add(CACHE_SVC);
         this.descriptors = Collections.unmodifiableList(descriptors);
-        final Set<Relationship> relationships = new HashSet<Relationship>();
+        final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
         relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
@@ -171,9 +172,7 @@ public class SQLToCache extends AbstractProcessor {
             flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
 		} finally {
-			if (sql != null) {
-				sql.close();
-			}
-		}
+            sql.close();
+        }
 	}
 }
