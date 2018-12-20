@@ -50,7 +50,7 @@ import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
-@Tags({"gogetter, json, cache, attribute, sql, bpenelli"})
+@Tags({"gogetter", "get", "json", "cache", "attribute", "sql", "hbase", "bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
 	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso()

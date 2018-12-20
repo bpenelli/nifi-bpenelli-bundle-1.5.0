@@ -30,3 +30,4 @@ org.bpenelli.nifi.processors.XMLValidator
 org.bpenelli.nifi.processors.EvaluateXML
 org.bpenelli.nifi.processors.ScanHBase
 org.bpenelli.nifi.processors.GetSQLScalar
+org.bpenelli.nifi.processors.CheckState
