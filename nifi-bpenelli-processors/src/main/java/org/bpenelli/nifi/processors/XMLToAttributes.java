@@ -16,10 +16,20 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
+import org.apache.nifi.annotation.documentation.CapabilityDescription;
+import org.apache.nifi.annotation.documentation.SeeAlso;
+import org.apache.nifi.annotation.documentation.Tags;
+import org.apache.nifi.annotation.lifecycle.OnScheduled;
+import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.components.Validator;
+import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.processor.*;
+import org.apache.nifi.processor.exception.ProcessException;
+import org.bpenelli.nifi.processors.utils.FlowUtils;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -28,126 +38,111 @@ import javax.xml.xpath.XPath;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
-
-import org.apache.nifi.annotation.documentation.CapabilityDescription;
-import org.apache.nifi.annotation.documentation.SeeAlso;
-import org.apache.nifi.annotation.documentation.Tags;
-import org.apache.nifi.annotation.lifecycle.OnScheduled;
-import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.components.Validator;
-import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
-import org.apache.nifi.processor.exception.ProcessException;
-import org.bpenelli.nifi.processors.utils.FlowUtils;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"xml", "attributes", "bpenelli"})
 @CapabilityDescription("Extracts XML elements to FlowFile attributes. The XML can come from the "
-		+ "FlowFile's content, or a FlowFile attribute. If \"Parse Type\" is table, then a new "
-		+ "FlowFile will be generated for each record element. If \"Parse Type\" is record, then "
-		+ "only one FlowFile will be generated. You can also choose to use different names for "
-		+ "the attributes when extracted.")
+        + "FlowFile's content, or a FlowFile attribute. If \"Parse Type\" is table, then a new "
+        + "FlowFile will be generated for each record element. If \"Parse Type\" is record, then "
+        + "only one FlowFile will be generated. You can also choose to use different names for "
+        + "the attributes when extracted.")
 @SeeAlso()
 public class XMLToAttributes extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile that is successfully processed")
-		.build();
+            .name("success")
+            .description("Any FlowFile that is successfully processed")
+            .build();
 
     public static final Relationship REL_ORIGINAL = new Relationship.Builder()
-		.name("original")
-		.description("Original FlowFiles")
-		.build();
+            .name("original")
+            .description("Original FlowFiles")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile that cannot be processed")
-		.build();
+            .name("failure")
+            .description("Any FlowFile that cannot be processed")
+            .build();
 
     public static final PropertyDescriptor XML_ROOT = new PropertyDescriptor.Builder()
-        .name("XML Root Path")
-        .description("The path to the root node containing the elements to extract.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("XML Root Path")
+            .description("The path to the root node containing the elements to extract.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor PARSE_TYPE = new PropertyDescriptor.Builder()
-        .name("Parse Type")
-        .description("table - Treats root node elements as records and outputs a FlowFile for each. record - Treats root node elements as fields and extracts to the existing FlowFile.")
-        .required(true)
-        .allowableValues("table","record")
-        .defaultValue("table")
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Parse Type")
+            .description("table - Treats root node elements as records and outputs a FlowFile for each. record - Treats root node elements as fields and extracts to the existing FlowFile.")
+            .required(true)
+            .allowableValues("table", "record")
+            .defaultValue("table")
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ATTRIBUTE_NAME = new PropertyDescriptor.Builder()
-        .name("Attribute Name")
-        .description("The name of the attribute containing source XML. If left empty the FlowFile's contents will be used.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
-            
+            .name("Attribute Name")
+            .description("The name of the attribute containing source XML. If left empty the FlowFile's contents will be used.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor ATTRIBUTE_PREFIX = new PropertyDescriptor.Builder()
-        .name("Attribute Prefix")
-        .description("A prefix to use on all the resulting attribute names.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
-        
+            .name("Attribute Prefix")
+            .description("A prefix to use on all the resulting attribute names.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor NAME_DELIM = new PropertyDescriptor.Builder()
-        .name("Name Delimiter")
-        .description("Delimiter used to separate names in the \"Attributes to Rename\" and \"New Names\" properties. Defaults to comma.")
-        .required(true)
-        .defaultValue(",")
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Name Delimiter")
+            .description("Delimiter used to separate names in the \"Attributes to Rename\" and \"New Names\" properties. Defaults to comma.")
+            .required(true)
+            .defaultValue(",")
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ELEM_NAMES = new PropertyDescriptor.Builder()
-        .name("Attributes to Rename")
-        .description("Delimited list of element names to change when creating the FlowFile attributes.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Attributes to Rename")
+            .description("Delimited list of element names to change when creating the FlowFile attributes.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor NEW_NAMES = new PropertyDescriptor.Builder()
-        .name("New Names")
-        .description("Delimited list of new names to apply to the \"Attributes to Rename\".")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
-        
+            .name("New Names")
+            .description("Delimited list of new names to apply to the \"Attributes to Rename\".")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor ALWAYS_ADD = new PropertyDescriptor.Builder()
-        .name("Always Add")
-        .description("If true an attribute will be added for each \"New Name\" regardless if the relevant field-level element exists or not.")
-        .required(true)
-        .allowableValues("true", "false")
-        .defaultValue("true")
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Always Add")
+            .description("If true an attribute will be added for each \"New Name\" regardless if the relevant field-level element exists or not.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("true")
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -168,122 +163,122 @@ public class XMLToAttributes extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         // Get the XML
         final AtomicReference<String> content;
         final String attName = context.getProperty(ATTRIBUTE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String attPrefix = context.getProperty(ATTRIBUTE_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
         if (attName != null && attName.length() > 0) {
-        	content = new AtomicReference<>();
+            content = new AtomicReference<>();
             content.set(flowFile.getAttribute(attName));
         } else {
-        	content = FlowUtils.readContent(session, flowFile);
+            content = FlowUtils.readContent(session, flowFile);
         }
 
         // Extract the XML
         final StringBuilder rootPath = new StringBuilder(context.getProperty(XML_ROOT).evaluateAttributeExpressions(flowFile).getValue());
         final String parseType = context.getProperty(PARSE_TYPE).getValue();
         if (Objects.equals(parseType, "table")) {
-        	rootPath.append("/child::*");
+            rootPath.append("/child::*");
         }
         //noinspection Annotator
         final String delim = "\\" + context.getProperty(NAME_DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final boolean alwaysAdd = context.getProperty(ALWAYS_ADD).asBoolean();
         final XPath xpath = XPathFactory.newInstance().newXPath();
         DocumentBuilder builder;
-        
-		try {
-			builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
-		} catch (ParserConfigurationException e) {
-			session.transfer(flowFile, REL_FAILURE);
-			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
-			return;
-		}
-        
-		final ByteArrayInputStream xmlInputStream = new ByteArrayInputStream(content.get().getBytes());
-        
+
+        try {
+            builder = DocumentBuilderFactory.newInstance().newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            session.transfer(flowFile, REL_FAILURE);
+            getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[]{flowFile, e});
+            return;
+        }
+
+        final ByteArrayInputStream xmlInputStream = new ByteArrayInputStream(content.get().getBytes());
+
         Element doc;
-		try {
-			doc = builder.parse(xmlInputStream).getDocumentElement();
-		} catch (SAXException | IOException e) {
-			session.transfer(flowFile, REL_FAILURE);
-			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
-			return;
-		}
+        try {
+            doc = builder.parse(xmlInputStream).getDocumentElement();
+        } catch (SAXException | IOException e) {
+            session.transfer(flowFile, REL_FAILURE);
+            getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[]{flowFile, e});
+            return;
+        }
 
         NodeList records;
-		try {
-			records = (NodeList)xpath.evaluate(rootPath.toString(), doc, XPathConstants.NODESET);
-		} catch (XPathExpressionException e) {
-			session.transfer(flowFile, REL_FAILURE);
-			getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
-			return;
-		}
-        
-		final int fragCount = records.getLength();
+        try {
+            records = (NodeList) xpath.evaluate(rootPath.toString(), doc, XPathConstants.NODESET);
+        } catch (XPathExpressionException e) {
+            session.transfer(flowFile, REL_FAILURE);
+            getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[]{flowFile, e});
+            return;
+        }
+
+        final int fragCount = records.getLength();
         int fragIndex = 0;
         final String fragID = UUID.randomUUID().toString();
-        
+
         String[] renameList = new String[0];
         final String renameCSV = context.getProperty(ELEM_NAMES).evaluateAttributeExpressions(flowFile).getValue();
         if (renameCSV != null && renameCSV.length() > 0) renameList = renameCSV.split(delim);
-        
+
         String[] newNameList = new String[0];
         final String newNameCSV = context.getProperty(NEW_NAMES).evaluateAttributeExpressions(flowFile).getValue();
         if (newNameCSV != null && newNameCSV.length() > 0) newNameList = newNameCSV.split(delim);
 
         // Iterate the record elements.
-        for (int i = 0 ; i < fragCount; i++) {
-        	final Node record = records.item(i);
+        for (int i = 0; i < fragCount; i++) {
+            final Node record = records.item(i);
             FlowFile newFlowFile = session.create(flowFile);
             NodeList fields;
-			try {
-				fields = (NodeList)xpath.evaluate("./child::*", record, XPathConstants.NODESET);
-			} catch (XPathExpressionException e) {
-				getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[] {flowFile, e});
-				session.rollback();
-				return;
-			}
-        	final int fieldCount = fields.getLength();
+            try {
+                fields = (NodeList) xpath.evaluate("./child::*", record, XPathConstants.NODESET);
+            } catch (XPathExpressionException e) {
+                getLogger().error("Unable to extract XML to attributes for {} due to {}", new Object[]{flowFile, e});
+                session.rollback();
+                return;
+            }
+            final int fieldCount = fields.getLength();
             fragIndex++;
             if (alwaysAdd) {
-            	for (String name : newNameList) {
+                for (String name : newNameList) {
                     newFlowFile = session.putAttribute(newFlowFile, name, "");
                 }
             }
             // Iterate the field elements.
             for (int fieldIndex = 0; fieldIndex < fieldCount; fieldIndex++) {
-            	Node field = fields.item(fieldIndex);
+                Node field = fields.item(fieldIndex);
                 String fieldName = field.getNodeName();
                 final String fieldValue = field.getTextContent();
                 // Check if we need to rename the field
@@ -299,18 +294,18 @@ public class XMLToAttributes extends AbstractProcessor {
                 if (attPrefix != null && attPrefix.length() > 0) fieldName = attPrefix + fieldName;
                 newFlowFile = session.putAttribute(newFlowFile, fieldName, fieldValue);
             }
-            
+
             if (Objects.equals(parseType, "table")) {
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.identifier", fragID);
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.index", Integer.toString(fragIndex));
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.count", Integer.toString(fragCount));
                 newFlowFile = session.putAttribute(newFlowFile, "fragment.size", "0");
             }
-            
+
             // Transfer the new FlowFile.
             session.transfer(newFlowFile, REL_SUCCESS);
         }
-    
+
         // Transfer the original FlowFile.
         session.transfer(flowFile, REL_ORIGINAL);
     }

@@ -16,15 +16,7 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.regex.Pattern;
-
+import groovy.json.JsonBuilder;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.SeeAlso;
 import org.apache.nifi.annotation.documentation.Tags;
@@ -33,16 +25,13 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
-import groovy.json.JsonBuilder;
+import java.util.*;
+import java.util.regex.Pattern;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"attributes", "to", "json", "regex", "match", "properties", "bpenelli"})
@@ -51,57 +40,57 @@ import groovy.json.JsonBuilder;
 public class SymbolsToJSON extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile that is successfully processed")
-		.build();
+            .name("success")
+            .description("Any FlowFile that is successfully processed")
+            .build();
 
     public static final PropertyDescriptor ATT_PREFIX = new PropertyDescriptor.Builder()
-        .name("Matching Prefix")
-        .description("All attributes with this prefix will be included.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Matching Prefix")
+            .description("All attributes with this prefix will be included.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor STRIP_PREFIX = new PropertyDescriptor.Builder()
-        .name("Strip Prefix")
-        .description("Determines if the Matching Prefix will be stripped from the final name.")
-		.required(true)
-		.allowableValues("true", "false")
-		.defaultValue("true")
-		.build();
+            .name("Strip Prefix")
+            .description("Determines if the Matching Prefix will be stripped from the final name.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("true")
+            .build();
 
     public static final PropertyDescriptor FILTER_REGEX = new PropertyDescriptor.Builder()
-        .name("RegEx")
-        .description("All attributes that match this regular expression will be included.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("RegEx")
+            .description("All attributes that match this regular expression will be included.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ATT_LIST = new PropertyDescriptor.Builder()
-        .name("Attribute List")
-        .description("A delimited list of attributes to include.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
-                        
+            .name("Attribute List")
+            .description("A delimited list of attributes to include.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor ATT_DELIM = new PropertyDescriptor.Builder()
-        .name("Delimiter")
-        .description("Delimiter used to separate attribute names in the Attributes List property. Defaults to comma.")
-        .required(true)
-        .defaultValue(",")
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Delimiter")
+            .description("Delimiter used to separate attribute names in the Attributes List property. Defaults to comma.")
+            .required(true)
+            .defaultValue(",")
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -117,53 +106,53 @@ public class SymbolsToJSON extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getSupportedDynamicPropertyDescriptor
-    **************************************************************/
+     * getSupportedDynamicPropertyDescriptor
+     **************************************************************/
     @Override
     protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
 
-    	PropertyDescriptor.Builder propertyBuilder = new PropertyDescriptor.Builder()
-            .name(propertyDescriptorName)
-            .required(false)
-            .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
-            .expressionLanguageSupported(true)
-            .dynamic(true);
-    	
-    		return propertyBuilder.build();
+        PropertyDescriptor.Builder propertyBuilder = new PropertyDescriptor.Builder()
+                .name(propertyDescriptorName)
+                .required(false)
+                .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
+                .expressionLanguageSupported(true)
+                .dynamic(true);
+
+        return propertyBuilder.build();
     }
-    
+
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         // Get Property Values
         final String attPrefix = context.getProperty(ATT_PREFIX).evaluateAttributeExpressions(flowFile).getValue();
         final boolean excludePrefix = context.getProperty(STRIP_PREFIX).asBoolean();
@@ -172,35 +161,35 @@ public class SymbolsToJSON extends AbstractProcessor {
         final String attNames = context.getProperty(ATT_LIST).evaluateAttributeExpressions(flowFile).getValue();
 
         final Map<String, String> valueMap = new TreeMap<>();
-        
+
         // Get attributes with the specified prefix.
         if (attPrefix != null && attPrefix.length() > 0) {
             for (final String name : flowFile.getAttributes().keySet()) {
                 if (name.startsWith(attPrefix)) {
-                	if (excludePrefix) {
-                		valueMap.put(name.replaceFirst(attPrefix, ""), flowFile.getAttribute(name));
-                	} else {
-                		valueMap.put(name, flowFile.getAttribute(name));
-                	}
+                    if (excludePrefix) {
+                        valueMap.put(name.replaceFirst(attPrefix, ""), flowFile.getAttribute(name));
+                    } else {
+                        valueMap.put(name, flowFile.getAttribute(name));
+                    }
                 }
             }
         }
-        
+
         // Get attributes that match the specified regular expression.
         if (regex != null && regex.length() > 0) {
-        	final Pattern filterPattern = Pattern.compile(regex);      	
+            final Pattern filterPattern = Pattern.compile(regex);
             for (final String name : flowFile.getAttributes().keySet()) {
-            	if (filterPattern.matcher(name).matches()) {
-            		valueMap.put(name, flowFile.getAttribute(name));
-            	}
+                if (filterPattern.matcher(name).matches()) {
+                    valueMap.put(name, flowFile.getAttribute(name));
+                }
             }
         }
 
         // Get attributes in the specified list.
         if (attNames != null && attNames.length() > 0) {
-        	for (final String name : attNames.split(delim)) {
-        		valueMap.put(name, flowFile.getAttribute(name));
-        	}
+            for (final String name : attNames.split(delim)) {
+                valueMap.put(name, flowFile.getAttribute(name));
+            }
         }
 
         // Get dynamic properties.
@@ -210,12 +199,12 @@ public class SymbolsToJSON extends AbstractProcessor {
                 valueMap.put(propDesc.getName(), propVal.evaluateAttributeExpressions(flowFile).getValue());
             }
         }
-         
+
         // Build a JSON object from the results and put it in the FlowFile's content.
         final JsonBuilder builder = new JsonBuilder();
         builder.call(valueMap);
         flowFile = FlowUtils.writeContent(session, flowFile, builder.toString());
-        
+
         // Transfer the FlowFile to success.
         session.transfer(flowFile, REL_SUCCESS);
     }

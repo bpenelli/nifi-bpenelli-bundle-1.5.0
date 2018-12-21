@@ -16,16 +16,15 @@
  */
 package org.bpenelli.nifi.processors;
 
+import org.apache.nifi.util.MockFlowFile;
+import org.apache.nifi.util.TestRunner;
+import org.apache.nifi.util.TestRunners;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.nifi.util.MockFlowFile;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.SymbolsToJSON;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class SymbolsToJSONTest {
 
@@ -35,19 +34,19 @@ public class SymbolsToJSONTest {
     @org.junit.Test
     public void testOnTrigger() {
 
-    	// Generate a test runner to mock a processor in a flow.
+        // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new SymbolsToJSON());
 
         runner.setValidateExpressionUsage(false);
 
         // Create Attributes.
-    	Map<String, String> attributes = new HashMap<>();
-    	attributes.put("pre.b", "2");
-    	attributes.put("a", "1");
-    	attributes.put("d", "4");
-    	attributes.put("c", "3");
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put("pre.b", "2");
+        attributes.put("a", "1");
+        attributes.put("d", "4");
+        attributes.put("c", "3");
 
-    	// Add properties.
+        // Add properties.
         runner.setProperty(SymbolsToJSON.ATT_PREFIX, "pre.");
         runner.setProperty(SymbolsToJSON.STRIP_PREFIX, "true");
         runner.setProperty(SymbolsToJSON.FILTER_REGEX, "^c$");

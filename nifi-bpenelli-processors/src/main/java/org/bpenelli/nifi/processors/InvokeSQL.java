@@ -17,13 +17,6 @@
 package org.bpenelli.nifi.processors;
 
 import groovy.sql.Sql;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -34,72 +27,72 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"invoke", "sql", "statement", "DML", "database", "bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
 @SeeAlso()
-@WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
+@WritesAttributes({@WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship.")})
 public class InvokeSQL extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile whose SQL was successfully invoked")
-		.build();
+            .name("success")
+            .description("Any FlowFile whose SQL was successfully invoked")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile whose SQL cannot be invoked")
-		.build();
+            .name("failure")
+            .description("Any FlowFile whose SQL cannot be invoked")
+            .build();
 
     public static final PropertyDescriptor SQL_TEXT = new PropertyDescriptor.Builder()
-        .name("SQL")
-        .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("SQL")
+            .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor DELIM = new PropertyDescriptor.Builder()
-        .name("Multi-statement Delimiter")
-        .description("Multi-statement delimiter used.")
-        .required(true)
-        .defaultValue(";")
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Multi-statement Delimiter")
+            .description("Multi-statement delimiter used.")
+            .required(true)
+            .defaultValue(";")
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor BLOCK_ON_ERROR = new PropertyDescriptor.Builder()
-        .name("Block on Error")
-        .description("Determines whether or not to block flow files from continuing on an error. "
-        	+ "If false, flow files will be sent to failure.")
-        .required(true)
-        .allowableValues("true", "false")
-        .defaultValue("false")
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Block on Error")
+            .description("Determines whether or not to block flow files from continuing on an error. "
+                    + "If false, flow files will be sent to failure.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
-        .name("Database Connection Pooling Service")
-        .description("The Controller service to use to obtain a database connection.")
-        .required(true)
-        .identifiesControllerService(DBCPService.class)
-        .build();
-        
+            .name("Database Connection Pooling Service")
+            .description("The Controller service to use to obtain a database connection.")
+            .required(true)
+            .identifiesControllerService(DBCPService.class)
+            .build();
+
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -115,38 +108,38 @@ public class InvokeSQL extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-		FlowFile flowFile = session.get();
+        FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         String sqlText = context.getProperty(SQL_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         final String delimiter = context.getProperty(DELIM).evaluateAttributeExpressions(flowFile).getValue();
         final boolean blockOnError = context.getProperty(BLOCK_ON_ERROR).asBoolean();
@@ -155,26 +148,26 @@ public class InvokeSQL extends AbstractProcessor {
         final Sql sql = new Sql(conn);
 
         if (sqlText == null || sqlText.length() == 0) {
-        	// Read content.
-            sqlText = FlowUtils.readContent(session, flowFile).get();        	
+            // Read content.
+            sqlText = FlowUtils.readContent(session, flowFile).get();
         }
-        
+
         final String[] statements = sqlText.split(delimiter);
-    	try {
-	        for (String statement : statements) {
-	        	if (statement == null || statement.length() == 0) continue;
-				sql.execute(statement);
-	        }
-	        session.transfer(flowFile, REL_SUCCESS);
-		} catch (SQLException e) {
-			if (blockOnError) {
-				throw new ProcessException(e);
-			} else {
+        try {
+            for (String statement : statements) {
+                if (statement == null || statement.length() == 0) continue;
+                sql.execute(statement);
+            }
+            session.transfer(flowFile, REL_SUCCESS);
+        } catch (SQLException e) {
+            if (blockOnError) {
+                throw new ProcessException(e);
+            } else {
                 flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
                 session.transfer(flowFile, REL_FAILURE);
-			}
-		} finally {
+            }
+        } finally {
             sql.close();
         }
-	}
+    }
 }

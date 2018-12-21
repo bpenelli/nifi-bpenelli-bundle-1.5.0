@@ -1,14 +1,5 @@
 package org.bpenelli.nifi.processors.utils;
 
-import java.io.IOException;
-import java.io.Reader;
-import java.io.StringWriter;
-import java.nio.charset.StandardCharsets;
-import java.sql.Clob;
-import java.sql.SQLException;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
-
 import org.apache.commons.io.IOUtils;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
@@ -18,24 +9,46 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.ProcessSession;
 
-public final class FlowUtils {
-	
-	private FlowUtils() {}
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.sql.Clob;
+import java.sql.SQLException;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicReference;
 
-	/**************************************************************
-    * applyCase
-    **************************************************************/
+public final class FlowUtils {
+
+    /**************************************************************
+     * stringSerializer
+     **************************************************************/
+    public final static Serializer<String> stringSerializer = (stringValue, out) -> out.write(stringValue.getBytes(StandardCharsets.UTF_8));
+    /**************************************************************
+     * stringDeserializer
+     **************************************************************/
+    public final static Deserializer<String> stringDeserializer = String::new;
+
+    private FlowUtils() {
+    }
+
+    /**************************************************************
+     * applyCase
+     **************************************************************/
     public static String applyCase(final String stringVal, final String toCase) {
         switch (toCase) {
-            case "Upper": return stringVal.toUpperCase(); 
-            case "Lower": return stringVal.toLowerCase();
-            default: return stringVal;
+            case "Upper":
+                return stringVal.toUpperCase();
+            case "Lower":
+                return stringVal.toLowerCase();
+            default:
+                return stringVal;
         }
     }
 
     /**************************************************************
-    * applyColMap
-    **************************************************************/
+     * applyColMap
+     **************************************************************/
     public static String applyColMap(final ProcessContext context, final FlowFile flowFile, final String sourceTableName,
                                      final String sourceColName, final String toCase) {
         final String colMapKey = sourceTableName + "." + sourceColName;
@@ -50,89 +63,81 @@ public final class FlowUtils {
         colName = applyCase(colName, toCase);
         return colName;
     }
-    
-    /**************************************************************
-    * convertString
-    **************************************************************/
-	public static Object convertString(final String value, final String newType) {
-		if (value == null || newType == null) return value;
-    	Object converted;
-		switch (newType) {
-	    	case "int": 
-	    		converted = Integer.parseInt(value);
-	    		break;
-	    	case "long": 
-	    		converted = Long.parseLong(value);
-	    		break;
-	    	case "float":
-	    		converted = Float.parseFloat(value);
-	    		break;
-	    	case "decimal": case "double": 
-	    		converted = Double.parseDouble(value);
-	    		break;
-	    	case "string": default:
-	    		converted = value;
-	    		break;
-    	}
-		return converted;
-	}
 
     /**************************************************************
-    * convertString
-    **************************************************************/
-	public static Object convertString(final Object value, final String newType) {
-		if (value == null || newType == null) return value;
-		return FlowUtils.convertString(value.toString(), newType);
-	}
+     * convertString
+     **************************************************************/
+    public static Object convertString(final String value, final String newType) {
+        if (value == null || newType == null) return value;
+        Object converted;
+        switch (newType) {
+            case "int":
+                converted = Integer.parseInt(value);
+                break;
+            case "long":
+                converted = Long.parseLong(value);
+                break;
+            case "float":
+                converted = Float.parseFloat(value);
+                break;
+            case "decimal":
+            case "double":
+                converted = Double.parseDouble(value);
+                break;
+            case "string":
+            default:
+                converted = value;
+                break;
+        }
+        return converted;
+    }
 
     /**************************************************************
-    * evaluateExpression
-    **************************************************************/
+     * convertString
+     **************************************************************/
+    public static Object convertString(final Object value, final String newType) {
+        if (value == null || newType == null) return value;
+        return FlowUtils.convertString(value.toString(), newType);
+    }
+
+    /**************************************************************
+     * evaluateExpression
+     **************************************************************/
     public static String evaluateExpression(final ProcessContext context, final FlowFile flowFile, final String expression) {
         PropertyValue newPropVal = context.newPropertyValue(expression);
         return newPropVal.evaluateAttributeExpressions(flowFile).getValue();
     }
 
     /**************************************************************
-    * getColValue
-    **************************************************************/
+     * getColValue
+     **************************************************************/
     public static String getColValue(final Object col, final String defaultValue) throws SQLException, IOException {
         String result;
-    	if (col instanceof Clob) {
-            Reader stream = ((Clob)col).getCharacterStream();
+        if (col instanceof Clob) {
+            Reader stream = ((Clob) col).getCharacterStream();
             StringWriter writer = new StringWriter();
             IOUtils.copy(stream, writer);
             result = writer.toString();
         } else {
             result = col != null ? col.toString() : defaultValue;
         }
-    	return result;
+        return result;
     }
-    
+
     /**************************************************************
-    * readContent
-    **************************************************************/
+     * readContent
+     **************************************************************/
     public static AtomicReference<String> readContent(final ProcessSession session, final FlowFile flowFile) {
-    	final AtomicReference<String> content = new AtomicReference<>();
+        final AtomicReference<String> content = new AtomicReference<>();
         session.read(flowFile, inputStream -> content.set(IOUtils.toString(inputStream, StandardCharsets.UTF_8)));
         return content;
     }
-    
+
     /**************************************************************
-    * writeContent
-    **************************************************************/
+     * writeContent
+     **************************************************************/
     public static FlowFile writeContent(final ProcessSession session, FlowFile flowFile, final Object content) {
         flowFile = session.write(flowFile, outputStream -> outputStream.write(content.toString().getBytes(StandardCharsets.UTF_8)));
         return flowFile;
     }
-    
-    /**************************************************************
-    * stringSerializer
-    **************************************************************/
-    public final static Serializer<String> stringSerializer = (stringValue, out) -> out.write(stringValue.getBytes(StandardCharsets.UTF_8));
-    
-    /**************************************************************
-    * stringDeserializer
-    **************************************************************/
-    public final static Deserializer<String> stringDeserializer = String::new;
 }

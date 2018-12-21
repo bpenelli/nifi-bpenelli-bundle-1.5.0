@@ -16,12 +16,6 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -31,82 +25,81 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.hbase.HBaseClientService;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.HBaseResults;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
+import java.io.IOException;
+import java.util.*;
+
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"get", "hbase", "scan", "filter", "query", "bpenelli"})
 @CapabilityDescription("Runs a filtered HBase scan.")
 @WritesAttributes({
-	@WritesAttribute(attribute="scan.failure.reason", description="The reason the FlowFile was sent to failure relationship.")
+        @WritesAttribute(attribute = "scan.failure.reason", description = "The reason the FlowFile was sent to failure relationship.")
 })
 public class ScanHBase extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile that is successfully processed")
-		.build();
+            .name("success")
+            .description("Any FlowFile that is successfully processed")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile with an IO exception")
-		.build();
+            .name("failure")
+            .description("Any FlowFile with an IO exception")
+            .build();
 
     public static final PropertyDescriptor TABLE_NAME = new PropertyDescriptor.Builder()
-        .name("Table Name")
-        .description("The name of the HBase table to use to maintain the sequence.")
-        .required(true)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Table Name")
+            .description("The name of the HBase table to use to maintain the sequence.")
+            .required(true)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ROW_KEY_NAME = new PropertyDescriptor.Builder()
-        .name("Row Key Name")
-        .description("The name to assign the row key value to.")
-        .required(true)
-        .expressionLanguageSupported(true)
-        .defaultValue("row_key")
-        .addValidator(StandardValidators.ATTRIBUTE_KEY_VALIDATOR)
-        .build();
+            .name("Row Key Name")
+            .description("The name to assign the row key value to.")
+            .required(true)
+            .expressionLanguageSupported(true)
+            .defaultValue("row_key")
+            .addValidator(StandardValidators.ATTRIBUTE_KEY_VALIDATOR)
+            .build();
 
     public static final PropertyDescriptor FILTER_EXP = new PropertyDescriptor.Builder()
-        .name("Filter Expression")
-        .description("An HBase filter expression.")
-        .required(true)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Filter Expression")
+            .description("An HBase filter expression.")
+            .required(true)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ATTR_FORMAT = new PropertyDescriptor.Builder()
-        .name("Attribute Format")
-        .description("The format to use for the resulting attribute names.")
-        .required(true)
-        .allowableValues(HBaseResults.FMT_TBL_FAM_QUAL, HBaseResults.FMT_TBL_QUAL, HBaseResults.FMT_FAM_QUAL, HBaseResults.FMT_QUAL)
-        .defaultValue(HBaseResults.FMT_QUAL)
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Attribute Format")
+            .description("The format to use for the resulting attribute names.")
+            .required(true)
+            .allowableValues(HBaseResults.FMT_TBL_FAM_QUAL, HBaseResults.FMT_TBL_QUAL, HBaseResults.FMT_FAM_QUAL, HBaseResults.FMT_QUAL)
+            .defaultValue(HBaseResults.FMT_QUAL)
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor HBASE_CLIENT_SERVICE = new PropertyDescriptor.Builder()
-        .name("HBase Client Service")
-        .description("Specifies the HBase Client Controller Service to use for accessing HBase.")
-        .required(true)
-        .identifiesControllerService(HBaseClientService.class)
-        .build();
+            .name("HBase Client Service")
+            .description("Specifies the HBase Client Controller Service to use for accessing HBase.")
+            .required(true)
+            .identifiesControllerService(HBaseClientService.class)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -123,60 +116,60 @@ public class ScanHBase extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-    	FlowFile flowFile = session.get();
+        FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         // Get property values.
         final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String rowKeyName = context.getProperty(ROW_KEY_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final String filterExpression = context.getProperty(FILTER_EXP).evaluateAttributeExpressions(flowFile).getValue();
         final String attrFormat = context.getProperty(ATTR_FORMAT).getValue();
         final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
-		
-		try {
-			// Scan the HBase table.
-			final HBaseResults scanResults;
+
+        try {
+            // Scan the HBase table.
+            final HBaseResults scanResults;
             scanResults = HBaseUtils.scan(hbaseService, tableName, filterExpression);
             scanResults.rowKeyName = rowKeyName;
             scanResults.emitFormat = attrFormat;
             // Emit a new flow file for each result row.
             scanResults.emitFlowFiles(session, flowFile, REL_SUCCESS);
             session.remove(flowFile);
-		} catch (IOException e) {
+        } catch (IOException e) {
             String msg = e.getMessage();
-            if (msg == null) msg = e.toString();			
-			flowFile = session.putAttribute(flowFile, "scan.failure.reason",  msg);
-			session.transfer(flowFile, REL_FAILURE);
-			getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
-		}
+            if (msg == null) msg = e.toString();
+            flowFile = session.putAttribute(flowFile, "scan.failure.reason", msg);
+            session.transfer(flowFile, REL_FAILURE);
+            getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
+        }
     }
 }

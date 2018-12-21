@@ -16,8 +16,6 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.util.*;
-
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -30,60 +28,46 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
+
+import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"check", "update", "state", "cache", "compare", "route", "bpenelli"})
 @CapabilityDescription("Routes a FlowFile and updates state based on a supplied compare value relative to a state value.")
 @SeeAlso()
-@ReadsAttributes({@ReadsAttribute(attribute="")})
+@ReadsAttributes({@ReadsAttribute(attribute = "")})
 @WritesAttributes({
-        @WritesAttribute(attribute="check.failure.reason", description="The reason the FlowFile was sent to failure relationship."),
+        @WritesAttribute(attribute = "check.failure.reason", description = "The reason the FlowFile was sent to failure relationship."),
 })
 public class CheckState extends AbstractProcessor {
-
-    static final String LESS_THAN = "Less Than";
-    static final String GREATER_THAN = "Greater Than";
-    static final String EQUAL_TO = "Equal To";
-    static final String NOT_EQUAL_TO = "Not Equal To";
-    static final String NEVER = "Never";
 
     public static final Relationship REL_LESS_THAN = new Relationship.Builder()
             .name("less")
             .description("Any FlowFile who's compare value is less than state.")
             .build();
-
     public static final Relationship REL_GREATER_THAN = new Relationship.Builder()
             .name("greater")
             .description("Any FlowFile who's compare value is greater than state.")
             .build();
-
     public static final Relationship REL_EQUAL_TO = new Relationship.Builder()
             .name("equal")
             .description("Any FlowFile who's compare value is equal to state.")
             .build();
-
     public static final Relationship REL_EMPTY = new Relationship.Builder()
             .name("empty")
             .description("Any FlowFile with a missing or empty compare value.")
             .build();
-
     public static final Relationship REL_INITIAL = new Relationship.Builder()
             .name("initial")
             .description("Any FlowFile where a state key is initialized.")
             .build();
-
     public static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
             .description("Any FlowFile with an exception.")
             .build();
-
     public static final PropertyDescriptor STATE_KEY = new PropertyDescriptor.Builder()
             .name("State Key")
             .description("The key containing the state value to compare with.")
@@ -91,7 +75,6 @@ public class CheckState extends AbstractProcessor {
             .expressionLanguageSupported(true)
             .addValidator(Validator.VALID)
             .build();
-
     public static final PropertyDescriptor COMPARE_VAL = new PropertyDescriptor.Builder()
             .name("Compare Value")
             .description("The value to compare with state. If left empty, the FlowFile's content will be used.")
@@ -99,7 +82,19 @@ public class CheckState extends AbstractProcessor {
             .expressionLanguageSupported(true)
             .addValidator(Validator.VALID)
             .build();
-
+    public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
+            .name("Distributed Map Cache Service")
+            .description("The map cache service providing access to state.")
+            .required(true)
+            .expressionLanguageSupported(false)
+            .identifiesControllerService(DistributedMapCacheClient.class)
+            .addValidator(Validator.VALID)
+            .build();
+    static final String LESS_THAN = "Less Than";
+    static final String GREATER_THAN = "Greater Than";
+    static final String EQUAL_TO = "Equal To";
+    static final String NOT_EQUAL_TO = "Not Equal To";
+    static final String NEVER = "Never";
     public static final PropertyDescriptor REPLACE_WHEN = new PropertyDescriptor.Builder()
             .name("Replace When")
             .description("Replace state with compare value when compare value " +
@@ -110,16 +105,6 @@ public class CheckState extends AbstractProcessor {
             .defaultValue(GREATER_THAN)
             .addValidator(Validator.VALID)
             .build();
-
-    public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
-            .name("Distributed Map Cache Service")
-            .description("The map cache service providing access to state.")
-            .required(true)
-            .expressionLanguageSupported(false)
-            .identifiesControllerService(DistributedMapCacheClient.class)
-            .addValidator(Validator.VALID)
-            .build();
-
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
@@ -171,7 +156,7 @@ public class CheckState extends AbstractProcessor {
     /**************************************************************
      * onTrigger
      **************************************************************/
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings({"unchecked"})
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
@@ -229,7 +214,7 @@ public class CheckState extends AbstractProcessor {
             if (msg == null) msg = e.toString();
             flowFile = session.putAttribute(flowFile, "check.failure.reason", msg);
             session.transfer(flowFile, REL_FAILURE);
-            getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
+            getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
         }
     }
 }

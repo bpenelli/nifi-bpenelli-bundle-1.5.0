@@ -15,7 +15,7 @@ public final class HBaseResultRowHandler implements ResultHandler {
         rowCount += 1;
         HBaseResultRow row = new HBaseResultRow();
         row.setRowKey(resultRow);
-        for( final ResultCell resultCell : resultCells ){
+        for (final ResultCell resultCell : resultCells) {
             HBaseResultCell cell = new HBaseResultCell();
             cell.setFamily(Arrays.copyOfRange(resultCell.getFamilyArray(), resultCell.getFamilyOffset(), resultCell.getFamilyLength() + resultCell.getFamilyOffset()));
             cell.setQualifier(Arrays.copyOfRange(resultCell.getQualifierArray(), resultCell.getQualifierOffset(), resultCell.getQualifierLength() + resultCell.getQualifierOffset()));

@@ -16,15 +16,15 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.XMLToAttributes;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 public class XMLToAttributesTest {
 
@@ -34,8 +34,8 @@ public class XMLToAttributesTest {
     @org.junit.Test
     public void testOnTrigger() {
 
-    	// Add content.
-    	InputStream content = new ByteArrayInputStream("<root><my.name>Dude</my.name></root>".getBytes());
+        // Add content.
+        InputStream content = new ByteArrayInputStream("<root><my.name>Dude</my.name></root>".getBytes());
 
         // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new XMLToAttributes());
@@ -65,7 +65,7 @@ public class XMLToAttributesTest {
         result.assertAttributeEquals("test.my.name", "Dude");
 
         // Test 2
-        
+
         // Add content.
         content = new ByteArrayInputStream("<root><names><my.name>Dude</my.name></names></root>".getBytes());
 

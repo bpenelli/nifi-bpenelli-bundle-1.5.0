@@ -16,15 +16,15 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.GoldenGateToSQL;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("StringBufferReplaceableByString")
 public class GoldenGateToSQLTest {
@@ -34,40 +34,40 @@ public class GoldenGateToSQLTest {
      */
     @org.junit.Test
     public void testOnTrigger() {
-    	
-    	StringBuilder trail = new StringBuilder(); 
-    	trail.append("{");
-    	trail.append("\"table\": \"MOCK.MYTABLE\",");
-    	trail.append("\"op_type\": \"U\",");
-    	trail.append("\"op_ts\": \"2018-04-12 00:56:35.015432\",");
-    	trail.append("\"current_ts\": \"2018-04-12T00:57:04.102000\",");
-    	trail.append("\"pos\": \"00000000000000003064\",");
-    	trail.append("\"primary_keys\": [\"PK1_ID\",");
-    	trail.append("\"PK2_ID\",");
-    	trail.append("\"PK3_ID\"],");
-    	trail.append("\"before\": {");
-    	trail.append("\"PK1_ID\": 1,");
-    	trail.append("\"PK2_ID\": 2,");
-    	trail.append("\"PK3_ID\": 3,");
-    	trail.append("\"SOURCE_LANG\": \"US\",");
-    	trail.append("\"NAME\": \"Name Before Update\",");
-    	trail.append("\"LAST_UPDATE_DATE\": \"2017-09-22 10:56:35\",");
-    	trail.append("\"LAST_UPDATED_BY\": 1433,");
-    	trail.append("\"LAST_UPDATE_LOGIN\": 333912,");
-    	trail.append("\"CREATED_BY\": 1156,");
-    	trail.append("\"CREATION_DATE\": \"2017-09-19 11:16:25\",");
-    	trail.append("\"ZD_SYNC\": \"SYNCED\"");
-    	trail.append("},");
-    	trail.append("\"after\": {");
-    	trail.append("\"PK1_ID\": 1,");
-    	trail.append("\"PK2_ID\": 2,");
-    	trail.append("\"PK3_ID\": 3,");
-    	trail.append("\"NAME\": \"Name After Update\",");
-    	trail.append("\"ZD_SYNC\": \"SYNCED\"");
-    	trail.append("}");
-    	trail.append("}");
 
-    	
+        StringBuilder trail = new StringBuilder();
+        trail.append("{");
+        trail.append("\"table\": \"MOCK.MYTABLE\",");
+        trail.append("\"op_type\": \"U\",");
+        trail.append("\"op_ts\": \"2018-04-12 00:56:35.015432\",");
+        trail.append("\"current_ts\": \"2018-04-12T00:57:04.102000\",");
+        trail.append("\"pos\": \"00000000000000003064\",");
+        trail.append("\"primary_keys\": [\"PK1_ID\",");
+        trail.append("\"PK2_ID\",");
+        trail.append("\"PK3_ID\"],");
+        trail.append("\"before\": {");
+        trail.append("\"PK1_ID\": 1,");
+        trail.append("\"PK2_ID\": 2,");
+        trail.append("\"PK3_ID\": 3,");
+        trail.append("\"SOURCE_LANG\": \"US\",");
+        trail.append("\"NAME\": \"Name Before Update\",");
+        trail.append("\"LAST_UPDATE_DATE\": \"2017-09-22 10:56:35\",");
+        trail.append("\"LAST_UPDATED_BY\": 1433,");
+        trail.append("\"LAST_UPDATE_LOGIN\": 333912,");
+        trail.append("\"CREATED_BY\": 1156,");
+        trail.append("\"CREATION_DATE\": \"2017-09-19 11:16:25\",");
+        trail.append("\"ZD_SYNC\": \"SYNCED\"");
+        trail.append("},");
+        trail.append("\"after\": {");
+        trail.append("\"PK1_ID\": 1,");
+        trail.append("\"PK2_ID\": 2,");
+        trail.append("\"PK3_ID\": 3,");
+        trail.append("\"NAME\": \"Name After Update\",");
+        trail.append("\"ZD_SYNC\": \"SYNCED\"");
+        trail.append("}");
+        trail.append("}");
+
+
         // Add content.
         InputStream content = new ByteArrayInputStream(trail.toString().getBytes());
 
@@ -80,7 +80,7 @@ public class GoldenGateToSQLTest {
         runner.setProperty(GoldenGateToSQL.FORMAT, "JSON");
         runner.setProperty(GoldenGateToSQL.TO_CASE, "Lower");
         runner.setProperty(GoldenGateToSQL.SCHEMA, "gg");
-        
+
         // Add the content to the runner.
         runner.enqueue(content);
 
@@ -92,7 +92,7 @@ public class GoldenGateToSQLTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoldenGateToSQL.REL_SUCCESS);
-		assertEquals("1 match", 1, results.size());
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.

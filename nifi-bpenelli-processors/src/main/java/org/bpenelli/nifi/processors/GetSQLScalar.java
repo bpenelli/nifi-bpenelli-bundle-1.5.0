@@ -18,14 +18,6 @@ package org.bpenelli.nifi.processors;
 
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
-
-import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -35,75 +27,74 @@ import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
+
+import java.sql.Connection;
+import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"get", "sql", "scalar", "query", "database", "bpenelli"})
 @CapabilityDescription("Extracts the value from the first column of the first row returned from a SQL query to a named attribute.")
-@WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
+@WritesAttributes({@WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship.")})
 public class GetSQLScalar extends AbstractProcessor {
 
-	// Relationships
+    // Relationships
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile which was successfully processed.")
-		.build();
+            .name("success")
+            .description("Any FlowFile which was successfully processed.")
+            .build();
 
     public static final Relationship REL_EMPTY = new Relationship.Builder()
-		.name("empty")
-		.description("Any FlowFile whose SQL returns an empty result set.")
-		.build();
+            .name("empty")
+            .description("Any FlowFile whose SQL returns an empty result set.")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile whose SQL failed.")
-		.build();
+            .name("failure")
+            .description("Any FlowFile whose SQL failed.")
+            .build();
 
     // Properties
     public static final PropertyDescriptor SQL_TEXT = new PropertyDescriptor.Builder()
-        .name("SQL")
-        .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("SQL")
+            .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor ATT_NAME = new PropertyDescriptor.Builder()
-        .name("Attribute Name")
-        .description("The name of an attribute to extract the value to.")
-        .required(true)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Attribute Name")
+            .description("The name of an attribute to extract the value to.")
+            .required(true)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
-	public static final PropertyDescriptor BLOCK_ON_FAILURE = new PropertyDescriptor.Builder()
-		.name("Block on Failure")
-		.description("Determines whether to block flow files from being sent to failure and remain on the input queue.")
-		.required(true)
-		.allowableValues("true", "false")
-		.defaultValue("false")
-		.build();
+    public static final PropertyDescriptor BLOCK_ON_FAILURE = new PropertyDescriptor.Builder()
+            .name("Block on Failure")
+            .description("Determines whether to block flow files from being sent to failure and remain on the input queue.")
+            .required(true)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .build();
 
-	public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
-        .name("Database Connection Pooling Service")
-        .description("The Controller service to use to obtain a database connection.")
-        .required(true)
-        .identifiesControllerService(DBCPService.class)
-        .build();
+    public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
+            .name("Database Connection Pooling Service")
+            .description("The Controller service to use to obtain a database connection.")
+            .required(true)
+            .identifiesControllerService(DBCPService.class)
+            .build();
 
     // Private Members
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -120,38 +111,38 @@ public class GetSQLScalar extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-		FlowFile flowFile = session.get();
+        FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         String sqlText = context.getProperty(SQL_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         String attName = context.getProperty(ATT_NAME).evaluateAttributeExpressions(flowFile).getValue();
         final boolean blockOnFailure = context.getProperty(BLOCK_ON_FAILURE).asBoolean();
@@ -160,30 +151,30 @@ public class GetSQLScalar extends AbstractProcessor {
         final Sql sql = new Sql(conn);
 
         if (sqlText == null || sqlText.length() == 0) {
-        	// Read content.
-            sqlText = FlowUtils.readContent(session, flowFile).get();        	
+            // Read content.
+            sqlText = FlowUtils.readContent(session, flowFile).get();
         }
-        
-    	try {
+
+        try {
             final List<GroovyRowResult> data = sql.rows(sqlText);
             if (data.size() == 0) {
-            	session.transfer(flowFile, REL_EMPTY);
-            	return;
+                session.transfer(flowFile, REL_EMPTY);
+                return;
             }
             GroovyRowResult row = data.get(0);
             final String value = FlowUtils.getColValue(row.getAt(0), "");
-           	flowFile = session.putAttribute(flowFile, attName, value);
+            flowFile = session.putAttribute(flowFile, attName, value);
             session.transfer(flowFile, REL_SUCCESS);
-		} catch (Exception e) {
-			getLogger().error("Error executing SQL due to {}", new Object[] { e });
-			if (blockOnFailure) {
-				session.rollback();
-				return;
-			}
+        } catch (Exception e) {
+            getLogger().error("Error executing SQL due to {}", new Object[]{e});
+            if (blockOnFailure) {
+                session.rollback();
+                return;
+            }
             flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
-		} finally {
+        } finally {
             sql.close();
         }
-	}
+    }
 }

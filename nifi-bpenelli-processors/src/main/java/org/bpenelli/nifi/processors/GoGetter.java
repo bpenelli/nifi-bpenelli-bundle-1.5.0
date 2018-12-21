@@ -17,15 +17,10 @@
 package org.bpenelli.nifi.processors;
 
 import groovy.json.JsonBuilder;
-import static groovy.json.JsonParserType.LAX;
 import groovy.json.JsonSlurper;
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
 import groovyjarjarcommonscli.MissingArgumentException;
-
-import java.sql.Connection;
-import java.util.*;
-
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -40,83 +35,84 @@ import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.hbase.HBaseClientService;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.bpenelli.nifi.processors.utils.HBaseUtils;
 
+import java.sql.Connection;
+import java.util.*;
+
+import static groovy.json.JsonParserType.LAX;
+
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"gogetter", "get", "json", "cache", "attribute", "sql", "hbase", "bpenelli"})
 @CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
-	"Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
+        "Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
 @SeeAlso()
-@ReadsAttributes({@ReadsAttribute(attribute="")})
+@ReadsAttributes({@ReadsAttribute(attribute = "")})
 @WritesAttributes({
-	@WritesAttribute(attribute="gog.failure.reason", description="The reason the FlowFile was sent to failure relationship."),
-	@WritesAttribute(attribute="gog.failure.sql", description="The SQL assigned when the FlowFile was sent to failure relationship."),
-	@WritesAttribute(attribute="gog.failure.hbase.filter", description="The HBase filter expression assigned when the FlowFile was sent to failure relationship.")
+        @WritesAttribute(attribute = "gog.failure.reason", description = "The reason the FlowFile was sent to failure relationship."),
+        @WritesAttribute(attribute = "gog.failure.sql", description = "The SQL assigned when the FlowFile was sent to failure relationship."),
+        @WritesAttribute(attribute = "gog.failure.hbase.filter", description = "The HBase filter expression assigned when the FlowFile was sent to failure relationship.")
 })
 public class GoGetter extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile that is successfully processed")
-		.build();
+            .name("success")
+            .description("Any FlowFile that is successfully processed")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile with an exception")
-		.build();
+            .name("failure")
+            .description("Any FlowFile with an exception")
+            .build();
 
     public static final PropertyDescriptor GOG_TEXT = new PropertyDescriptor.Builder()
-        .name("GOG Text")
-        .description("The text of a GOG configuration JSON. If left empty, and 'Attribute Name' is empty, the FlowFile's content will be used.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("GOG Text")
+            .description("The text of a GOG configuration JSON. If left empty, and 'Attribute Name' is empty, the FlowFile's content will be used.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor GOG_ATTRIBUTE = new PropertyDescriptor.Builder()
-        .name("Attribute Name")
-        .description("The name of an attribute containing the GOG configuration JSON. If 'GOG Text' is empty, and this is left empty, the FlowFile's content will be used.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Attribute Name")
+            .description("The name of an attribute containing the GOG configuration JSON. If 'GOG Text' is empty, and this is left empty, the FlowFile's content will be used.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
-        .name("Distributed Map Cache Service")
-        .description("The Controller Service containing the cached key map entries to retrieve.")
-        .required(false)
-        .expressionLanguageSupported(false)
-        .identifiesControllerService(DistributedMapCacheClient.class)
-        .addValidator(Validator.VALID)
-        .build();
-            
+            .name("Distributed Map Cache Service")
+            .description("The Controller Service containing the cached key map entries to retrieve.")
+            .required(false)
+            .expressionLanguageSupported(false)
+            .identifiesControllerService(DistributedMapCacheClient.class)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
-        .name("Database Connection Pooling Service")
-        .description("The Controller service to use to obtain a database connection.")
-        .required(false)
-        .identifiesControllerService(DBCPService.class)
-        .build();
+            .name("Database Connection Pooling Service")
+            .description("The Controller service to use to obtain a database connection.")
+            .required(false)
+            .identifiesControllerService(DBCPService.class)
+            .build();
 
     public static final PropertyDescriptor HBASE_CLIENT_SERVICE = new PropertyDescriptor.Builder()
-        .name("HBase Client Service")
-        .description("Specifies the HBase Client Controller Service to use for accessing HBase.")
-        .required(false)
-        .identifiesControllerService(HBaseClientService.class)
-        .build();
+            .name("HBase Client Service")
+            .description("Specifies the HBase Client Controller Service to use for accessing HBase.")
+            .required(false)
+            .identifiesControllerService(HBaseClientService.class)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -133,38 +129,38 @@ public class GoGetter extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-    @SuppressWarnings({ "unchecked" })
-	@Override
+     * onTrigger
+     **************************************************************/
+    @SuppressWarnings({"unchecked"})
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         final String gogAtt = context.getProperty(GOG_ATTRIBUTE).evaluateAttributeExpressions(flowFile).getValue();
         final String gogText = context.getProperty(GOG_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
@@ -179,7 +175,7 @@ public class GoGetter extends AbstractProcessor {
         } else if (gogAtt != null && !gogAtt.isEmpty()) {
             gogConfig = flowFile.getAttribute(gogAtt);
         } else {
-        	gogConfig = FlowUtils.readContent(session, flowFile).get();
+            gogConfig = FlowUtils.readContent(session, flowFile).get();
         }
 
         // Process GOG.
@@ -188,118 +184,121 @@ public class GoGetter extends AbstractProcessor {
             final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
 
             // Process extract-to-attributes.
-        	if (gog.containsKey("extract-to-attributes")) {
-            	Extractor.extract((Map<String, Object>)gog.get("extract-to-attributes"), "extract-to-attributes", session, 
-            			context, flowFile, cacheService, dbcpService, hbaseService);
+            if (gog.containsKey("extract-to-attributes")) {
+                Extractor.extract((Map<String, Object>) gog.get("extract-to-attributes"), "extract-to-attributes", session,
+                        context, flowFile, cacheService, dbcpService, hbaseService);
             }
-            
-        	// Process extract-to-json.
-        	if (gog.containsKey("extract-to-json")) {
-            	Extractor.extract((Map<String, Object>)gog.get("extract-to-json"), "extract-to-json", session, 
-            			context, flowFile, cacheService, dbcpService, hbaseService);
+
+            // Process extract-to-json.
+            if (gog.containsKey("extract-to-json")) {
+                Extractor.extract((Map<String, Object>) gog.get("extract-to-json"), "extract-to-json", session,
+                        context, flowFile, cacheService, dbcpService, hbaseService);
             }
-            
-        	// Transfer the FlowFile to success.
+
+            // Transfer the FlowFile to success.
             session.transfer(flowFile, REL_SUCCESS);
-            
+
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null) msg = e.toString();
             flowFile = session.putAttribute(flowFile, "gog.failure.reason", msg);
             session.transfer(flowFile, REL_FAILURE);
-        	getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
+            getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
         }
     }
 
-    private static class Extractor { 
+    private static class Extractor {
 
-    	@SuppressWarnings({ "unchecked" })
-        public static void extract (Map<String, Object> gogMap, String gogKey, ProcessSession session,
-                                          ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService,
-                                          DBCPService dbcpService, HBaseClientService hbaseService) throws Exception {
+        @SuppressWarnings({"unchecked"})
+        public static void extract(Map<String, Object> gogMap, String gogKey, ProcessSession session,
+                                   ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService,
+                                   DBCPService dbcpService, HBaseClientService hbaseService) throws Exception {
 
-    		final Map<String, Object> valueMap = new TreeMap<>();
-    		
-    		for (final String key : gogMap.keySet()) {
-    			
-    			final Object expression = gogMap.get(key); 
-	    
-	            // Handle simple type property.
-	            if (!(expression instanceof Map)) {
-	            	if (expression == null) {
-	            		valueMap.put(key, null);
-	            		continue;
-	            	}
-	            	// Evaluate any supplied expression language.
-	                final String result = FlowUtils.evaluateExpression(context, flowFile, expression.toString());
-	                // Add the result to our value map.
-	                valueMap.put(key, result);
-	                continue;
-	            }
+            final Map<String, Object> valueMap = new TreeMap<>();
 
-	            // Handle complex type property.
-	            Object defaultValue = null;
-	            String result;
-	            Map<String, Object> propMap = (Map<String, Object>) expression;
+            for (final String key : gogMap.keySet()) {
+
+                final Object expression = gogMap.get(key);
+
+                // Handle simple type property.
+                if (!(expression instanceof Map)) {
+                    if (expression == null) {
+                        valueMap.put(key, null);
+                        continue;
+                    }
+                    // Evaluate any supplied expression language.
+                    final String result = FlowUtils.evaluateExpression(context, flowFile, expression.toString());
+                    // Add the result to our value map.
+                    valueMap.put(key, result);
+                    continue;
+                }
+
+                // Handle complex type property.
+                Object defaultValue = null;
+                String result;
+                Map<String, Object> propMap = (Map<String, Object>) expression;
 
                 // Get default property.
-            	if (propMap.containsKey("default")) {
-            		defaultValue = propMap.get("default");
+                if (propMap.containsKey("default")) {
+                    defaultValue = propMap.get("default");
                 }
-            	
-            	// Get to-type property.
-            	String toType = null;
-            	if (propMap.containsKey("to-type")) {
-	            	toType = propMap.get("to-type").toString();
-	            }
 
-	            // Get value property.
-            	Object value = propMap.get("value");
-            	if (value == null || value.toString().isEmpty()) {
-            		valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-            		continue;
-            	}
-            	
-            	// Get value expression language result.
+                // Get to-type property.
+                String toType = null;
+                if (propMap.containsKey("to-type")) {
+                    toType = propMap.get("to-type").toString();
+                }
+
+                // Get value property.
+                Object value = propMap.get("value");
+                if (value == null || value.toString().isEmpty()) {
+                    valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                    continue;
+                }
+
+                // Get value expression language result.
                 result = FlowUtils.evaluateExpression(context, flowFile, value.toString());
-                
+
                 // If value result is null or empty then use default value.
                 if (result == null || result.isEmpty()) {
-                	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-            		continue;
+                    valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                    continue;
                 }
-                
+
                 // Get type property.
                 final String valType = propMap.containsKey("type") ? propMap.get("type").toString() : "";
 
                 // Type handler.
                 switch (valType) {
-                    case "CACHE_KEY": case "CACHE":
+                    case "CACHE_KEY":
+                    case "CACHE":
                         // Get the value from a cache source.
-                    	result = cacheService.get(result, FlowUtils.stringSerializer, FlowUtils.stringDeserializer);
-                    	if (result == null || result.isEmpty()) {
-                    		valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-    	            		continue;
-                    	}
+                        result = cacheService.get(result, FlowUtils.stringSerializer, FlowUtils.stringDeserializer);
+                        if (result == null || result.isEmpty()) {
+                            valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                            continue;
+                        }
                         break;
-                    case "HBASE_FILTER": case "HBASE_SCAN": case "HBASE":
+                    case "HBASE_FILTER":
+                    case "HBASE_SCAN":
+                    case "HBASE":
                         // Get the value from a HBase source.
                         if (!propMap.containsKey("hbase-table")) {
-                        	throw new MissingArgumentException("hbase-table argument missing for " + key);
+                            throw new MissingArgumentException("hbase-table argument missing for " + key);
                         }
                         final String hbaseTable = propMap.get("hbase-table").toString();
                         final String filterExpression = result;
                         try {
-                        	result = HBaseUtils.getLastCellValueByFilter(hbaseService, hbaseTable, filterExpression);
-	                        if (result == null || result.isEmpty()) {
-	                            valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-	                            continue;
-	                        }
+                            result = HBaseUtils.getLastCellValueByFilter(hbaseService, hbaseTable, filterExpression);
+                            if (result == null || result.isEmpty()) {
+                                valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                                continue;
+                            }
                         } catch (Exception e) {
-                        	flowFile = session.putAttribute(flowFile, "gog.failure.hbase.filter",  filterExpression);
+                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.filter", filterExpression);
                             //noinspection UnusedAssignment
-                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table",  hbaseTable);
-                            throw e;                        	
+                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table", hbaseTable);
+                            throw e;
                         }
                         break;
                     case "SQL":
@@ -314,44 +313,44 @@ public class GoGetter extends AbstractProcessor {
                                 final Object col = row.getAt(0);
                                 result = FlowUtils.getColValue(col, null);
                                 if (result == null || result.isEmpty()) {
-                                	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-		    	            		continue;
+                                    valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                                    continue;
                                 }
                             } else {
-                            	valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-	    	            		continue;
+                                valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
+                                continue;
                             }
                         } catch (Exception e) {
                             //noinspection UnusedAssignment
-                            flowFile = session.putAttribute(flowFile, "gog.failure.sql",  sqlText);
+                            flowFile = session.putAttribute(flowFile, "gog.failure.sql", sqlText);
                             throw e;
                         } finally {
-                        	if (sql != null) sql.close();
+                            if (sql != null) sql.close();
                         }
                         break;
                     default:
                         // No type specified, so value result is a literal.
                         break;
-                }                
+                }
 
-	            // Add the result to our value map, after any specified type conversion.
-            	valueMap.put(key, FlowUtils.convertString(result, toType));	            
-	        }
+                // Add the result to our value map, after any specified type conversion.
+                valueMap.put(key, FlowUtils.convertString(result, toType));
+            }
 
-    		if (Objects.equals(gogKey, "extract-to-json")) {
-	            // Build a JSON object for these results and put it in the FlowFile's content.
-	            final JsonBuilder builder = new JsonBuilder();
-	            builder.call(valueMap);
-	            FlowUtils.writeContent(session, flowFile, builder);
-	        }
+            if (Objects.equals(gogKey, "extract-to-json")) {
+                // Build a JSON object for these results and put it in the FlowFile's content.
+                final JsonBuilder builder = new JsonBuilder();
+                builder.call(valueMap);
+                FlowUtils.writeContent(session, flowFile, builder);
+            }
 
-	        if (Objects.equals(gogKey, "extract-to-attributes")) {
-	            // Add FlowFile attributes for these results.
-	            for (final String key : valueMap.keySet()) {
-	            	flowFile = session.putAttribute(flowFile, key, valueMap.get(key).toString());
-	            }
-	        }
-    	}
+            if (Objects.equals(gogKey, "extract-to-attributes")) {
+                // Add FlowFile attributes for these results.
+                for (final String key : valueMap.keySet()) {
+                    flowFile = session.putAttribute(flowFile, key, valueMap.get(key).toString());
+                }
+            }
+        }
 
     }
 }

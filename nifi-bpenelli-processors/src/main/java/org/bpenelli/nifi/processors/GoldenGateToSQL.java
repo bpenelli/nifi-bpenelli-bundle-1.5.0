@@ -24,20 +24,11 @@ import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
@@ -46,83 +37,83 @@ import java.util.concurrent.atomic.AtomicReference;
 @SeeAlso()
 public class GoldenGateToSQL extends AbstractProcessor {
 
-	public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("FlowFiles that were successfully processed")
-		.build();
+    public static final Relationship REL_SUCCESS = new Relationship.Builder()
+            .name("success")
+            .description("FlowFiles that were successfully processed")
+            .build();
 
     public static final PropertyDescriptor FORMAT = new PropertyDescriptor.Builder()
-        .name("Trail File Format")
-        .description("The format of the trail file.")
-        .required(true)
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .allowableValues("JSON")
-        .defaultValue("JSON")
-        .build();
+            .name("Trail File Format")
+            .description("The format of the trail file.")
+            .required(true)
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .allowableValues("JSON")
+            .defaultValue("JSON")
+            .build();
 
     public static final PropertyDescriptor TO_CASE = new PropertyDescriptor.Builder()
-        .name("Convert Case")
-        .description("Convert table and column name case.")
-        .required(true)
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .allowableValues("None", "Upper", "Lower")
-        .defaultValue("None")
-        .build();
+            .name("Convert Case")
+            .description("Convert table and column name case.")
+            .required(true)
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .allowableValues("None", "Upper", "Lower")
+            .defaultValue("None")
+            .build();
 
     public static final PropertyDescriptor SCHEMA = new PropertyDescriptor.Builder()
-        .name("Target Schema")
-        .description("The target schema name. Only needed if overriding the one in the trail file.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
-        
+            .name("Target Schema")
+            .description("The target schema name. Only needed if overriding the one in the trail file.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
+
     public static final PropertyDescriptor SEMICOLON = new PropertyDescriptor.Builder()
-        .name("Include Semicolon")
-        .description("If true, a semicolon will be added to the end of the SQL statement.")
-        .required(true)
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .allowableValues("true", "false")
-        .defaultValue("false")
-        .build();
+            .name("Include Semicolon")
+            .description("If true, a semicolon will be added to the end of the SQL statement.")
+            .required(true)
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .allowableValues("true", "false")
+            .defaultValue("false")
+            .build();
 
     public static final PropertyDescriptor ATTRIBUTE_NAME = new PropertyDescriptor.Builder()
-        .name("SQL Attribute")
-        .description("The name of the attribute to output the SQL to. If left empty, it will be written to the FlowFile's content.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("SQL Attribute")
+            .description("The name of the attribute to output the SQL to. If left empty, it will be written to the FlowFile's content.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor KEYCOLS = new PropertyDescriptor.Builder()
-        .name("Key Columns")
-        .description("Comma separated list of key column names. Only needed if the primary_keys property is not in the trail file, or to override.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Key Columns")
+            .description("Comma separated list of key column names. Only needed if the primary_keys property is not in the trail file, or to override.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final String colMapDesc = "Ex: SRCTBL.CUST_ID | CUSTOMER_ID ";
-        
+
     public static final PropertyDescriptor COLMAP = new PropertyDescriptor.Builder()
-        .name("*** Add Column Mapping Below ***")
-        .description("For column mapping, add dynamic properties, i.e. PropertyName: <SrcTableName>.<SrcColName>, PropertyValue: <TargColName>.")
-        .required(true)
-        .expressionLanguageSupported(false)
-        .addValidator(Validator.VALID)
-        .allowableValues(colMapDesc)
-        .defaultValue(colMapDesc)
-        .build();
+            .name("*** Add Column Mapping Below ***")
+            .description("For column mapping, add dynamic properties, i.e. PropertyName: <SrcTableName>.<SrcColName>, PropertyValue: <TargColName>.")
+            .required(true)
+            .expressionLanguageSupported(false)
+            .addValidator(Validator.VALID)
+            .allowableValues(colMapDesc)
+            .defaultValue(colMapDesc)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -139,41 +130,41 @@ public class GoldenGateToSQL extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
 
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-    @SuppressWarnings({ "unchecked" })
-	@Override
+     * onTrigger
+     **************************************************************/
+    @SuppressWarnings({"unchecked"})
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         final AtomicReference<Map<String, Object>> content = new AtomicReference<>();
         content.set((Map<String, Object>) new JsonSlurper().parseText(FlowUtils.readContent(session, flowFile).get()));
-        
+
         int i = 0;
         final StringBuilder sql = new StringBuilder();
         final String schema = context.getProperty(SCHEMA).evaluateAttributeExpressions().getValue();
@@ -184,17 +175,17 @@ public class GoldenGateToSQL extends AbstractProcessor {
         String[] pk = new String[0];
 
         if (keyCols != null && keyCols.length() > 0) {
-        	pk = keyCols.split(",");
+            pk = keyCols.split(",");
         } else if (content.get().containsKey("primary_keys")) {
-        	pk = ((ArrayList<String>) content.get().get("primary_keys")).toArray(pk);
+            pk = ((ArrayList<String>) content.get().get("primary_keys")).toArray(pk);
         }
-        
-    	String table = content.get().get("table").toString();
+
+        String table = content.get().get("table").toString();
         final String tableName = table.substring(table.indexOf(".") + 1);
         final String opType = content.get().get("op_type").toString();
         final Map<String, Object> before = (Map<String, Object>) content.get().get("before");
         final Map<String, Object> after = (Map<String, Object>) content.get().get("after");
-        
+
         if (schema != null) {
             if (schema.length() > 0) {
                 table = schema + table.substring(table.indexOf("."));
@@ -217,7 +208,7 @@ public class GoldenGateToSQL extends AbstractProcessor {
                     vals.append(", ");
                 }
                 cols.append(colName);
-            	final Object value = after.get(item);
+                final Object value = after.get(item);
                 if (value != null) {
                     final String val = value.toString().replace("'", "''");
                     vals.append("'").append(val).append("'");
@@ -231,46 +222,46 @@ public class GoldenGateToSQL extends AbstractProcessor {
             sql.append(cols).append(" ").append(vals);
         } else {
             if (pk.length == 0) {
-            	throw new ProcessException("Primary key column(s) are required for this operation.");
+                throw new ProcessException("Primary key column(s) are required for this operation.");
             }
             if (opType.equals("U")) {
-                 // Update statement
+                // Update statement
                 sql.append("UPDATE ").append(table).append(" SET ");
                 for (final String col : after.keySet()) {
-                	boolean isPk = false; 
-                	for (String p : pk) {
-                		if (col.equals(p)) {
-                			isPk = true;
-                			break;
-                		}
-                	}
-                	if (!isPk) {
-	                    final String colName = FlowUtils.applyColMap(context, flowFile, tableName, col, toCase);
-	                    if (i > 0) {
-	                    	sql.append(", ");
-	                    }
-	                    sql.append(colName).append(" = ");
-	                	final Object colValue = after.get(col);
-	                    if (colValue != null) {
-	                        String val = colValue.toString().replace("'", "''");
-	                        sql.append("'").append(val).append("'");
-	                    } else {
-	                        sql.append("null");
-	                    }                    
-	                    i++;
-                	}
+                    boolean isPk = false;
+                    for (String p : pk) {
+                        if (col.equals(p)) {
+                            isPk = true;
+                            break;
+                        }
+                    }
+                    if (!isPk) {
+                        final String colName = FlowUtils.applyColMap(context, flowFile, tableName, col, toCase);
+                        if (i > 0) {
+                            sql.append(", ");
+                        }
+                        sql.append(colName).append(" = ");
+                        final Object colValue = after.get(col);
+                        if (colValue != null) {
+                            String val = colValue.toString().replace("'", "''");
+                            sql.append("'").append(val).append("'");
+                        } else {
+                            sql.append("null");
+                        }
+                        i++;
+                    }
                 }
             } else if (opType.equals("D")) {
                 // Delete statement
                 sql.append("DELETE FROM ").append(table);
             }
-           // Where clause for the update or delete.
+            // Where clause for the update or delete.
             i = 0;
             sql.append(" WHERE ");
             for (final String col : pk) {
                 final String colName = FlowUtils.applyColMap(context, flowFile, tableName, col, toCase);
                 if (i > 0) {
-                	sql.append(" AND ");
+                    sql.append(" AND ");
                 }
                 sql.append(colName).append(" ");
                 final Object colValue = before.get(col);
@@ -279,23 +270,23 @@ public class GoldenGateToSQL extends AbstractProcessor {
                     sql.append("= '").append(val).append("'");
                 } else {
                     sql.append("IS null");
-                }                    
+                }
                 i++;
             }
         }
-        
+
         if (includeSemicolon) sql.append(";");
 
         // Output the SQL
         if (attName != null && !attName.isEmpty()) {
             flowFile = session.putAttribute(flowFile, attName, sql.toString());
         } else {
-        	flowFile = FlowUtils.writeContent(session, flowFile, sql.toString());
+            flowFile = FlowUtils.writeContent(session, flowFile, sql.toString());
         }
-        
+
         // Success!
         session.transfer(flowFile, REL_SUCCESS);
         session.commit();
-        
+
     }
 }

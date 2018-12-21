@@ -16,14 +16,6 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.processor.ProcessorInitializationContext;
@@ -31,9 +23,12 @@ import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.EvaluateXML;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.*;
+
+import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("WeakerAccess")
 public class EvaluateXMLTest {
@@ -44,32 +39,32 @@ public class EvaluateXMLTest {
     @org.junit.Test
     public void testOnTrigger() {
 
-    	// Add content.
-    	InputStream content = new ByteArrayInputStream("<root><name>Dude</name></root>".getBytes());
-    	
-    	EvaluateXML proc = new EvaluateXML() {
-    	    public final PropertyDescriptor DYN_PROP_1 = new PropertyDescriptor.Builder()
-    	    	.dynamic(true)
-	            .name("extracted_name")
-	            .description("XPath to extract the name element from the test XML.")
-	            .required(true)
-	            .expressionLanguageSupported(true)
-	            .addValidator(Validator.VALID)
-	            .build();
+        // Add content.
+        InputStream content = new ByteArrayInputStream("<root><name>Dude</name></root>".getBytes());
 
-    	    @Override
-    	    protected void init(final ProcessorInitializationContext context) {
-    	        final List<PropertyDescriptor> descriptors = new ArrayList<>();
-    	        descriptors.add(ATTRIBUTE_NAME);
-    	        descriptors.add(DYN_PROP_1);
-    	        this.descriptors = Collections.unmodifiableList(descriptors);
-    	        final Set<Relationship> relationships = new HashSet<>();
-    	        relationships.add(REL_SUCCESS);
-    	        relationships.add(REL_FAILURE);
-    	        this.relationships = Collections.unmodifiableSet(relationships);
-    	    }
-    	};
-    	
+        EvaluateXML proc = new EvaluateXML() {
+            public final PropertyDescriptor DYN_PROP_1 = new PropertyDescriptor.Builder()
+                    .dynamic(true)
+                    .name("extracted_name")
+                    .description("XPath to extract the name element from the test XML.")
+                    .required(true)
+                    .expressionLanguageSupported(true)
+                    .addValidator(Validator.VALID)
+                    .build();
+
+            @Override
+            protected void init(final ProcessorInitializationContext context) {
+                final List<PropertyDescriptor> descriptors = new ArrayList<>();
+                descriptors.add(ATTRIBUTE_NAME);
+                descriptors.add(DYN_PROP_1);
+                this.descriptors = Collections.unmodifiableList(descriptors);
+                final Set<Relationship> relationships = new HashSet<>();
+                relationships.add(REL_SUCCESS);
+                relationships.add(REL_FAILURE);
+                this.relationships = Collections.unmodifiableSet(relationships);
+            }
+        };
+
         // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(proc);
 
@@ -77,7 +72,7 @@ public class EvaluateXMLTest {
 
         // Add properties.
         runner.setProperty("extracted_name", "/root/${literal(\"name\")}");
-        
+
         // Add the content to the runner.
         runner.enqueue(content);
 
@@ -89,7 +84,7 @@ public class EvaluateXMLTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(EvaluateXML.REL_SUCCESS);
-		assertEquals("1 match", 1, results.size());
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes

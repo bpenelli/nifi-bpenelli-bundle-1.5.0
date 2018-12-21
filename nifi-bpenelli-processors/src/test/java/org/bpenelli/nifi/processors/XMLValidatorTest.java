@@ -16,15 +16,15 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.XMLValidator;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 public class XMLValidatorTest {
 
@@ -34,8 +34,8 @@ public class XMLValidatorTest {
     @org.junit.Test
     public void testOnTrigger() {
 
-    	// Add content.
-    	InputStream content = new ByteArrayInputStream("<root><name>Dude</name><age>40</age></root>".getBytes());
+        // Add content.
+        InputStream content = new ByteArrayInputStream("<root><name>Dude</name><age>40</age></root>".getBytes());
 
         // Generate a test runner to mock a processor in a flow.
         TestRunner runner = TestRunners.newTestRunner(new XMLValidator());
@@ -44,17 +44,17 @@ public class XMLValidatorTest {
 
         // Add properties.
         runner.setProperty(XMLValidator.XSD_TEXT, "" +
-    		"<?xml version=\"1.0\" encoding=\"windows-1252\" ?>" + 
-    		"<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" + 
-    		"  <xsd:element name=\"root\">" + 
-    		"    <xsd:complexType>" + 
-    		"      <xsd:sequence>" + 
-    		"        <xsd:element name=\"name\" type=\"xsd:string\"/>" + 
-    		"        <xsd:element name=\"age\" type=\"xsd:integer\"/>" + 
-    		"      </xsd:sequence>" + 
-    		"    </xsd:complexType>" + 
-    		"  </xsd:element>" + 
-    		"</xsd:schema>");
+                "<?xml version=\"1.0\" encoding=\"windows-1252\" ?>" +
+                "<xsd:schema xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\">" +
+                "  <xsd:element name=\"root\">" +
+                "    <xsd:complexType>" +
+                "      <xsd:sequence>" +
+                "        <xsd:element name=\"name\" type=\"xsd:string\"/>" +
+                "        <xsd:element name=\"age\" type=\"xsd:integer\"/>" +
+                "      </xsd:sequence>" +
+                "    </xsd:complexType>" +
+                "  </xsd:element>" +
+                "</xsd:schema>");
 
         // Add the content to the runner.
         runner.enqueue(content);

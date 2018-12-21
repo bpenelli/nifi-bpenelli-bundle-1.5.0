@@ -16,8 +16,6 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.util.*;
-
 import org.apache.nifi.annotation.behavior.ReadsAttribute;
 import org.apache.nifi.annotation.behavior.ReadsAttributes;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
@@ -29,22 +27,20 @@ import org.apache.nifi.annotation.lifecycle.OnScheduled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.Validator;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
+
+import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"update", "flowfile", "attribute", "content", "expression", "recurse", "bpenelli"})
 @CapabilityDescription("Add or update FlowFile attributes and/or content with options for ignoring and recursing expression language.")
 @SeeAlso()
-@ReadsAttributes({@ReadsAttribute(attribute="")})
+@ReadsAttributes({@ReadsAttribute(attribute = "")})
 @WritesAttributes({
-        @WritesAttribute(attribute="update.failure.reason", description="The reason the FlowFile was sent to failure relationship."),
+        @WritesAttribute(attribute = "update.failure.reason", description = "The reason the FlowFile was sent to failure relationship."),
 })
 public class UpdateFlowFile extends AbstractProcessor {
 
@@ -157,7 +153,7 @@ public class UpdateFlowFile extends AbstractProcessor {
     /**************************************************************
      * onTrigger
      **************************************************************/
-    @SuppressWarnings({ "unchecked" })
+    @SuppressWarnings({"unchecked"})
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();
@@ -212,7 +208,7 @@ public class UpdateFlowFile extends AbstractProcessor {
             if (msg == null) msg = e.toString();
             flowFile = session.putAttribute(flowFile, "update.failure.reason", msg);
             session.transfer(flowFile, REL_FAILURE);
-            getLogger().error("Unable to process {} due to {}", new Object[] {flowFile, e});
+            getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
         }
     }
 }

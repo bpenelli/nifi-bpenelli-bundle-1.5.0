@@ -18,15 +18,6 @@ package org.bpenelli.nifi.processors;
 
 import groovy.sql.GroovyRowResult;
 import groovy.sql.Sql;
-
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import org.apache.nifi.annotation.behavior.WritesAttribute;
 import org.apache.nifi.annotation.behavior.WritesAttributes;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
@@ -38,63 +29,64 @@ import org.apache.nifi.components.Validator;
 import org.apache.nifi.dbcp.DBCPService;
 import org.apache.nifi.distributed.cache.client.DistributedMapCacheClient;
 import org.apache.nifi.flowfile.FlowFile;
-import org.apache.nifi.processor.AbstractProcessor;
-import org.apache.nifi.processor.ProcessContext;
-import org.apache.nifi.processor.ProcessSession;
-import org.apache.nifi.processor.ProcessorInitializationContext;
-import org.apache.nifi.processor.Relationship;
+import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
+
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"sql", "cache", "map", "statement", "query", "database", "bpenelli"})
 @CapabilityDescription("Saves key/value pairs returned from a SQL query to map cache. "
-		+ "The value from column 0 will be used for the map cache entry key name, and the value "
-		+ "from column 1 will be used for the map cache entry value. If column 2 is present, "
-		+ "then a second map cache entry key will be updated with the same value as the first.")
+        + "The value from column 0 will be used for the map cache entry key name, and the value "
+        + "from column 1 will be used for the map cache entry value. If column 2 is present, "
+        + "then a second map cache entry key will be updated with the same value as the first.")
 @SeeAlso()
-@WritesAttributes({@WritesAttribute(attribute="sql.failure.reason", description="The reason the FlowFile was sent to failue relationship.")})
+@WritesAttributes({@WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship.")})
 public class SQLToCache extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
-		.name("success")
-		.description("Any FlowFile which was successfully created.")
-		.build();
+            .name("success")
+            .description("Any FlowFile which was successfully created.")
+            .build();
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
-		.name("failure")
-		.description("Any FlowFile whose SQL failed.")
-		.build();
+            .name("failure")
+            .description("Any FlowFile whose SQL failed.")
+            .build();
 
     public static final PropertyDescriptor SQL_TEXT = new PropertyDescriptor.Builder()
-        .name("SQL")
-        .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
-        .required(false)
-        .expressionLanguageSupported(true)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("SQL")
+            .description("The SQL statement(s) to execute. If left empty the FlowFile contents will be used instead.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
 
     public static final PropertyDescriptor DBCP_SERVICE = new PropertyDescriptor.Builder()
-        .name("Database Connection Pooling Service")
-        .description("The Controller service to use to obtain a database connection.")
-        .required(true)
-        .identifiesControllerService(DBCPService.class)
-        .build();
-        
+            .name("Database Connection Pooling Service")
+            .description("The Controller service to use to obtain a database connection.")
+            .required(true)
+            .identifiesControllerService(DBCPService.class)
+            .build();
+
     public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
-        .name("Distributed Map Cache Service")
-        .description("Map Cache Controller Service")
-        .required(true)
-        .identifiesControllerService(DistributedMapCacheClient.class)
-        .addValidator(Validator.VALID)
-        .build();
+            .name("Distributed Map Cache Service")
+            .description("Map Cache Controller Service")
+            .required(true)
+            .identifiesControllerService(DistributedMapCacheClient.class)
+            .addValidator(Validator.VALID)
+            .build();
 
     private List<PropertyDescriptor> descriptors;
     private Set<Relationship> relationships;
 
     /**************************************************************
-    * init
-    **************************************************************/
+     * init
+     **************************************************************/
     @Override
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
@@ -109,38 +101,38 @@ public class SQLToCache extends AbstractProcessor {
     }
 
     /**************************************************************
-    * getRelationships
-    **************************************************************/
+     * getRelationships
+     **************************************************************/
     @Override
     public Set<Relationship> getRelationships() {
         return this.relationships;
     }
 
     /**************************************************************
-    * getSupportedPropertyDescriptors
-    **************************************************************/
+     * getSupportedPropertyDescriptors
+     **************************************************************/
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
     }
 
     /**************************************************************
-    * onScheduled
-    **************************************************************/
+     * onScheduled
+     **************************************************************/
     @OnScheduled
     public void onScheduled(final ProcessContext context) {
 
     }
-    
+
     /**************************************************************
-    * onTrigger
-    **************************************************************/
-	@Override
+     * onTrigger
+     **************************************************************/
+    @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-		FlowFile flowFile = session.get();
+        FlowFile flowFile = session.get();
         if (flowFile == null) return;
-        
+
         String sqlText = context.getProperty(SQL_TEXT).evaluateAttributeExpressions(flowFile).getValue();
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
@@ -149,18 +141,18 @@ public class SQLToCache extends AbstractProcessor {
         final Sql sql = new Sql(conn);
 
         if (sqlText == null || sqlText.length() == 0) {
-        	// Read content.
-            sqlText = FlowUtils.readContent(session, flowFile).get();        	
+            // Read content.
+            sqlText = FlowUtils.readContent(session, flowFile).get();
         }
-        
-    	try {
+
+        try {
             List<GroovyRowResult> data = sql.rows(sqlText);
             for (GroovyRowResult row : data) {
-            	Object col0 = row.getAt(0);
-            	Object col1 = row.getAt(1);
+                Object col0 = row.getAt(0);
+                Object col1 = row.getAt(1);
                 Object col2 = row.getAt(2);
-            	Object key = FlowUtils.getColValue(col0, "");
-            	Object value = FlowUtils.getColValue(col1, "");
+                Object key = FlowUtils.getColValue(col0, "");
+                Object value = FlowUtils.getColValue(col1, "");
                 cacheService.put(key.toString(), value.toString(), FlowUtils.stringSerializer, FlowUtils.stringSerializer);
                 if (col2 != null) {
                     key = FlowUtils.getColValue(col2, "");
@@ -168,11 +160,11 @@ public class SQLToCache extends AbstractProcessor {
                 }
             }
             session.transfer(flowFile, REL_SUCCESS);
-		} catch (SQLException | IOException e) {
+        } catch (SQLException | IOException e) {
             flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
-		} finally {
+        } finally {
             sql.close();
         }
-	}
+    }
 }

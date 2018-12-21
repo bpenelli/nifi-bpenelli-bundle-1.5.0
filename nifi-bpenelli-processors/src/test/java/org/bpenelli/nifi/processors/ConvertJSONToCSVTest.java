@@ -16,15 +16,15 @@
  */
 package org.bpenelli.nifi.processors;
 
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.List;
 import org.apache.nifi.util.MockFlowFile;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.ConvertJSONToCSV;
 
-import static org.junit.Assert.*;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import java.util.List;
+
+import static org.junit.Assert.assertEquals;
 
 @SuppressWarnings("StringBufferReplaceableByString")
 public class ConvertJSONToCSVTest {
@@ -37,7 +37,7 @@ public class ConvertJSONToCSVTest {
         // Add content.   	
         InputStream content = new ByteArrayInputStream("[\"{\\\"a\\\": 1, \\\"b\\\": \\\"two\\\"}\"]".getBytes());
 
-    	StringBuilder schema = new StringBuilder();
+        StringBuilder schema = new StringBuilder();
         schema.append("{");
         schema.append("\"type\": \"record\",");
         schema.append("\"name\": \"data\",");

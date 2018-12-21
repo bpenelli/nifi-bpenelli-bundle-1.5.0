@@ -16,18 +16,17 @@
  */
 package org.bpenelli.nifi.processors;
 
+import org.apache.nifi.util.MockFlowFile;
+import org.apache.nifi.util.TestRunner;
+import org.apache.nifi.util.TestRunners;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.nifi.util.MockFlowFile;
-import org.apache.nifi.util.TestRunner;
-import org.apache.nifi.util.TestRunners;
-import org.bpenelli.nifi.processors.GoGetter;
-
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 public class GoGetterTest {
 
@@ -45,29 +44,29 @@ public class GoGetterTest {
         runner.setValidateExpressionUsage(false);
 
         // Add properties.
-        runner.setProperty(GoGetter.GOG_TEXT, 
-        		"{"
-        		+ "\"extract-to-attributes\":{"
-        		+ "\"test.result\":\"Good!\""
-        		+ "},"
-        		+ "\"extract-to-json\":{"
-        		+ "\"test.result\":\"Hello World!\","
-        		+ "\"test.no\":{"
-        		+ "\"value\":\"21020\","
-        		+ "\"to-type\":\"long\"},"
-        		+ "\"test.exp\":{"
-        		+ "\"value\":\"${exp}\","
-        		+ "\"to-type\":\"long\"},"
-        		+ "\"null.exp\":{"
-        		+ "\"value\":null,"
-        		+ "\"default\":\"-1\","
-        		+ "\"to-type\":\"long\"}"
-        		+ "}"
-        		+ "}");
+        runner.setProperty(GoGetter.GOG_TEXT,
+                "{"
+                        + "\"extract-to-attributes\":{"
+                        + "\"test.result\":\"Good!\""
+                        + "},"
+                        + "\"extract-to-json\":{"
+                        + "\"test.result\":\"Hello World!\","
+                        + "\"test.no\":{"
+                        + "\"value\":\"21020\","
+                        + "\"to-type\":\"long\"},"
+                        + "\"test.exp\":{"
+                        + "\"value\":\"${exp}\","
+                        + "\"to-type\":\"long\"},"
+                        + "\"null.exp\":{"
+                        + "\"value\":null,"
+                        + "\"default\":\"-1\","
+                        + "\"to-type\":\"long\"}"
+                        + "}"
+                        + "}");
 
-    	Map<String, String> attributes = new HashMap<>();
-    	attributes.put("exp", "2");
-        
+        Map<String, String> attributes = new HashMap<>();
+        attributes.put("exp", "2");
+
         // Add the content to the runner.
         runner.enqueue(content, attributes);
 
@@ -79,7 +78,7 @@ public class GoGetterTest {
 
         // If you need to read or do additional tests on results you can access the content.
         List<MockFlowFile> results = runner.getFlowFilesForRelationship(GoGetter.REL_SUCCESS);
-		assertEquals("1 match", 1, results.size());
+        assertEquals("1 match", 1, results.size());
         MockFlowFile result = results.get(0);
 
         // Test attributes and content.
