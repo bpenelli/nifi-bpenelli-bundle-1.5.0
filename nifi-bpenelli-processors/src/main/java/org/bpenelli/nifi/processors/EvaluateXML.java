@@ -49,6 +49,7 @@ import org.apache.nifi.processor.ProcessSession;
 import org.apache.nifi.processor.ProcessorInitializationContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
+import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
@@ -127,6 +128,20 @@ public class EvaluateXML extends AbstractProcessor {
     @Override
     public final List<PropertyDescriptor> getSupportedPropertyDescriptors() {
         return this.descriptors;
+    }
+
+    /**************************************************************
+     * getSupportedDynamicPropertyDescriptor
+     **************************************************************/
+    @Override
+    protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
+        return new PropertyDescriptor.Builder()
+                .name(propertyDescriptorName)
+                .expressionLanguageSupported(true)
+                .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
+                .required(false)
+                .dynamic(true)
+                .build();
     }
 
     /**************************************************************

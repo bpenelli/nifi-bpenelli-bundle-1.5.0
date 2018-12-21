@@ -148,15 +148,13 @@ public class GoldenGateMergeViews extends AbstractProcessor {
     **************************************************************/
     @Override
     protected PropertyDescriptor getSupportedDynamicPropertyDescriptor(final String propertyDescriptorName) {
-
-    	PropertyDescriptor.Builder propertyBuilder = new PropertyDescriptor.Builder()
+    	return new PropertyDescriptor.Builder()
             .name(propertyDescriptorName)
             .required(false)
             .addValidator(StandardValidators.ATTRIBUTE_KEY_PROPERTY_NAME_VALIDATOR)
             .expressionLanguageSupported(true)
-            .dynamic(true);
-    	
-    		return propertyBuilder.build();
+            .dynamic(true)
+            .build();
     }
 
     /**************************************************************
