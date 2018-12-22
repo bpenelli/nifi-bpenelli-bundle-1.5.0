@@ -20,7 +20,7 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultRow {
-    public final ArrayList<HBaseResultCell> cellList = new ArrayList<>();
+    public final ArrayList<HBaseResultCell> cells = new ArrayList<>();
     public String rowKey;
     public byte[] rowKeyBytes;
 
@@ -36,7 +36,7 @@ public final class HBaseResultRow {
      * getCellValue
      **************************************************************/
     public String getCellValue(String family, String qualifier) {
-        for (HBaseResultCell cell : this.cellList) {
+        for (HBaseResultCell cell : this.cells) {
             if (cell.family.equals(family) && cell.qualifier.equals(qualifier)) {
                 return cell.value;
             }
@@ -48,7 +48,7 @@ public final class HBaseResultRow {
      * getCellValueBytes
      **************************************************************/
     public byte[] getCellValueBytes(String family, String qualifier) {
-        for (HBaseResultCell cell : this.cellList) {
+        for (HBaseResultCell cell : this.cells) {
             if (cell.family.equals(family) && cell.qualifier.equals(qualifier)) {
                 return cell.valueBytes;
             }

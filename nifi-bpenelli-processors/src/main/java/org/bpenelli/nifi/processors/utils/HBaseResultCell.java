@@ -21,7 +21,7 @@ public final class HBaseResultCell {
     public String family;
     public byte[] familyBytes;
     public String qualifier;
-    public byte[] nameBytes;
+    public byte[] qualifierBytes;
     public String value;
     public byte[] valueBytes;
 
@@ -37,7 +37,7 @@ public final class HBaseResultCell {
      * setQualifier
      **************************************************************/
     public void setQualifier(byte[] bytes) {
-        this.nameBytes = bytes;
+        this.qualifierBytes = bytes;
         this.qualifier = new String(bytes);
     }
 

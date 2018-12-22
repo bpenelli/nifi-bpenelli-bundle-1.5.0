@@ -144,7 +144,7 @@ public class HBaseUtils {
         final List<Column> columnsList = new ArrayList<>(0);
 
         hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
-        return (handler.getResults().rowList.size() > 0);
+        return (handler.getResults().getRowCount() > 0);
     }
 
     /**************************************************************
@@ -156,7 +156,7 @@ public class HBaseUtils {
         final HBaseResultRowHandler handler = new HBaseResultRowHandler();
         final List<Column> columnsList = new ArrayList<>(0);
         hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
-        return (handler.getResults().rowList.size() > 0);
+        return (handler.getResults().getRowCount() > 0);
     }
 
     /**************************************************************
@@ -202,10 +202,10 @@ public class HBaseUtils {
         hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
         HBaseResults results = handler.getResults();
 
-        if (results.rowList.size() > 1) {
+        if (results.getRowCount() > 1) {
             throw new IOException("Found multiple rows in HBase for key");
-        } else if (results.rowList.size() == 1) {
-            return deserialize(results.rowList.get(0).getCellValueBytes(columnFamily, columnQualifier), valueDeserializer);
+        } else if (results.getRowCount() == 1) {
+            return deserialize(results.rows.get(0).getCellValueBytes(columnFamily, columnQualifier), valueDeserializer);
         } else {
             return null;
         }
@@ -224,10 +224,10 @@ public class HBaseUtils {
         hbaseService.scan(tableName, rowIdBytes, rowIdBytes, columnsList, handler);
         HBaseResults results = handler.getResults();
 
-        if (results.rowList.size() > 1) {
+        if (results.getRowCount() > 1) {
             throw new IOException("Found multiple rows in HBase for filter expression.");
-        } else if (results.rowList.size() == 1) {
-            return results.rowList.get(0).getCellValue(columnFamily, columnQualifier);
+        } else if (results.getRowCount() == 1) {
+            return results.rows.get(0).getCellValue(columnFamily, columnQualifier);
         } else {
             return null;
         }
@@ -246,10 +246,10 @@ public class HBaseUtils {
         hbaseService.scan(tableName, columnsList, filterExpression, minTime, handler);
         HBaseResults results = handler.getResults();
 
-        if (results.rowList.size() > 1) {
+        if (results.getRowCount() > 1) {
             throw new IOException("Found multiple rows in HBase for filter expression.");
-        } else if (results.rowList.size() == 1) {
-            return results.rowList.get(0).getCellValue(columnFamily, columnQualifier);
+        } else if (results.getRowCount() == 1) {
+            return results.rows.get(0).getCellValue(columnFamily, columnQualifier);
         } else {
             return null;
         }
@@ -268,9 +268,9 @@ public class HBaseUtils {
         hbaseService.scan(tableName, columnsList, filterExpression, minTime, handler);
         HBaseResults results = handler.getResults();
 
-        if (results.rowList.size() > 1) {
+        if (results.getRowCount() > 1) {
             throw new IOException("Found multiple rows in HBase for filter expression.");
-        } else if (results.rowList.size() == 1) {
+        } else if (results.getRowCount() == 1) {
             return results.lastCellValue;
         } else {
             return null;

@@ -156,7 +156,6 @@ public class CheckState extends AbstractProcessor {
     /**************************************************************
      * onTrigger
      **************************************************************/
-    @SuppressWarnings({"unchecked"})
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
         FlowFile flowFile = session.get();

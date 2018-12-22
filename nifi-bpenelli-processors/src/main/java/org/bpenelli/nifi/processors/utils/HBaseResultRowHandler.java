@@ -36,10 +36,10 @@ public final class HBaseResultRowHandler implements ResultHandler {
             cell.setFamily(Arrays.copyOfRange(resultCell.getFamilyArray(), resultCell.getFamilyOffset(), resultCell.getFamilyLength() + resultCell.getFamilyOffset()));
             cell.setQualifier(Arrays.copyOfRange(resultCell.getQualifierArray(), resultCell.getQualifierOffset(), resultCell.getQualifierLength() + resultCell.getQualifierOffset()));
             cell.setValue(Arrays.copyOfRange(resultCell.getValueArray(), resultCell.getValueOffset(), resultCell.getValueLength() + resultCell.getValueOffset()));
-            row.cellList.add(cell);
+            row.cells.add(cell);
             results.setLastCellValue(cell.valueBytes);
         }
-        results.rowList.add(row);
+        results.rows.add(row);
     }
 
     public int getRowCount() {

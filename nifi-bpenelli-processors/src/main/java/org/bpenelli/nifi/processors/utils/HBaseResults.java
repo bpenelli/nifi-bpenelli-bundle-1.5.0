@@ -29,7 +29,7 @@ public final class HBaseResults {
     public static final String FMT_TBL_QUAL = "tablename.qualifier";
     public static final String FMT_FAM_QUAL = "family.qualifier";
     public static final String FMT_QUAL = "qualifier";
-    public final ArrayList<HBaseResultRow> rowList = new ArrayList<>();
+    public final ArrayList<HBaseResultRow> rows = new ArrayList<>();
     public String rowKeyName = "row_key";
     public String tableName = null;
     public String lastCellValue = null;
@@ -45,22 +45,29 @@ public final class HBaseResults {
     }
 
     /**************************************************************
+     * getRowCount
+     **************************************************************/
+    public int getRowCount() {
+        return this.rows.size();
+    }
+
+    /**************************************************************
      * emitFlowFiles
      **************************************************************/
     public void emitFlowFiles(ProcessSession session, FlowFile flowFile, Relationship successRel) {
 
-        final int fragCount = this.rowList.size();
+        final int fragCount = this.rows.size();
         int fragIndex = 0;
         String fragID = UUID.randomUUID().toString();
 
         // Iterate the result rows.
-        for (HBaseResultRow row : this.rowList) {
+        for (HBaseResultRow row : this.rows) {
             FlowFile newFlowFile = session.create(flowFile);
             // Add the row key attribute.
             newFlowFile = session.putAttribute(newFlowFile, rowKeyName, row.rowKey);
             fragIndex++;
             // Iterate the result row cells.
-            for (HBaseResultCell cell : row.cellList) {
+            for (HBaseResultCell cell : row.cells) {
                 StringBuilder attrName = new StringBuilder();
                 switch (emitFormat) {
                     case FMT_TBL_FAM_QUAL:
