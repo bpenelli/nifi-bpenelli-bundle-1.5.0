@@ -35,8 +35,8 @@ import java.sql.Connection;
 import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
-@Tags({"get", "sql", "scalar", "query", "database", "bpenelli"})
-@CapabilityDescription("Extracts the value from the first column of the first row returned from a SQL query to a named attribute.")
+@Tags({"get", "sql", "scalar", "query", "database", "attribute", "content", "bpenelli"})
+@CapabilityDescription("Extracts the value from the first column of the first row returned from a SQL query to a named attribute or to content.")
 @WritesAttributes({@WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship.")})
 public class GetSQLScalar extends AbstractProcessor {
 
@@ -67,8 +67,8 @@ public class GetSQLScalar extends AbstractProcessor {
 
     public static final PropertyDescriptor ATT_NAME = new PropertyDescriptor.Builder()
             .name("Attribute Name")
-            .description("The name of an attribute to extract the value to.")
-            .required(true)
+            .description("The name of an attribute to extract the value to. If left empty, value will be written to content.")
+            .required(false)
             .expressionLanguageSupported(true)
             .addValidator(Validator.VALID)
             .build();
@@ -163,7 +163,11 @@ public class GetSQLScalar extends AbstractProcessor {
             }
             GroovyRowResult row = data.get(0);
             final String value = FlowUtils.getColValue(row.getAt(0), "");
-            flowFile = session.putAttribute(flowFile, attName, value);
+            if (attName != null && !attName.isEmpty()) {
+                flowFile = session.putAttribute(flowFile, attName, value);
+            } else {
+                flowFile = FlowUtils.writeContent(session, flowFile, value);
+            }
             session.transfer(flowFile, REL_SUCCESS);
         } catch (Exception e) {
             getLogger().error("Error executing SQL due to {}", new Object[]{e});
