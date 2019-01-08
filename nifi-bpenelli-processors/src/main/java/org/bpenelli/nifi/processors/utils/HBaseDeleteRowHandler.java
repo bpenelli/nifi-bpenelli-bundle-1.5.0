@@ -18,28 +18,17 @@
 
 package org.bpenelli.nifi.processors.utils;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hdfs.protocol.proto.ClientDatanodeProtocolProtos;
 import org.apache.nifi.hbase.HBaseClientService;
-import org.apache.nifi.hbase.HBase_1_1_2_ClientService;
 import org.apache.nifi.hbase.scan.ResultCell;
 import org.apache.nifi.hbase.scan.ResultHandler;
 
 import java.io.IOException;
-import java.util.Arrays;
 
-public class HBaseDeleteRowHandler implements ResultHandler {
+class HBaseDeleteRowHandler implements ResultHandler {
 
-    private final HBaseResults results = new HBaseResults();
-    private HBaseClientService hbaseService;
-    private String tablename;
-    private int rowCount = 0;
+    private final HBaseClientService hbaseService;
+    private final String tablename;
     public IOException ioException;
-    public Configuration config;
-
-    private HBaseDeleteRowHandler() {}
 
     public HBaseDeleteRowHandler(HBaseClientService hbaseService, String tablename) {
         this.hbaseService = hbaseService;
