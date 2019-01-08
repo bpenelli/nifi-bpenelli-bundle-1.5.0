@@ -35,9 +35,8 @@ import org.bpenelli.nifi.processors.utils.HBaseUtils;
 import java.util.*;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
-@Tags({"truncate", "hbase", "table", "row", "bpenelli"})
-@CapabilityDescription("Truncates one or more HBase tables. "
-        + "Uses a HBaseMapCacheClientService controller to perform operations on HBase.")
+@Tags({"truncate", "hbase", "table", "bpenelli"})
+@CapabilityDescription("Truncates one or more HBase tables.")
 @WritesAttributes({
         @WritesAttribute(attribute = "truncate.failure.reason", description = "The reason the FlowFile was sent to failure relationship.")
 })
@@ -50,7 +49,7 @@ public class TruncateHBase extends AbstractProcessor {
 
     public static final Relationship REL_FAILURE = new Relationship.Builder()
             .name("failure")
-            .description("Any FlowFile with an IO exception")
+            .description("Any FlowFile with an exception")
             .build();
 
     public static final PropertyDescriptor TABLE_NAMES = new PropertyDescriptor.Builder()
@@ -109,6 +108,7 @@ public class TruncateHBase extends AbstractProcessor {
     protected void init(final ProcessorInitializationContext context) {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(TABLE_NAMES);
+        descriptors.add(HADOOP_CONF_FILES);
         descriptors.add(ZOOKEEPER_QUORUM);
         descriptors.add(ZOOKEEPER_CLIENT_PORT);
         descriptors.add(ZOOKEEPER_ZNODE_PARENT);
