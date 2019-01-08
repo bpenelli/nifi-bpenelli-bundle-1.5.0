@@ -16,6 +16,14 @@
  */
 package org.bpenelli.nifi.processors.utils;
 
+import org.apache.commons.lang.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hbase.HBaseConfiguration;
+import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.client.Admin;
+import org.apache.hadoop.hbase.client.Connection;
+import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.nifi.distributed.cache.client.Deserializer;
 import org.apache.nifi.distributed.cache.client.Serializer;
 import org.apache.nifi.hbase.HBaseClientService;
@@ -26,12 +34,18 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public class HBaseUtils {
 
     private HBaseUtils() {
     }
+
+    public static final String HBASE_CONF_ZK_QUORUM = "hbase.zookeeper.quorum";
+    public static final String HBASE_CONF_ZK_PORT = "hbase.zookeeper.property.clientPort";
+    public static final String HBASE_CONF_ZNODE_PARENT = "zookeeper.znode.parent";
+    public static final String HBASE_CONF_CLIENT_RETRIES = "hbase.client.retries.number";
 
     /**************************************************************
      * serialize
@@ -305,5 +319,74 @@ public class HBaseUtils {
             hbaseService.delete(tableName, rowIdBytes);
         }
         return contains;
+    }
+
+    /**************************************************************
+     * removeAll
+     **************************************************************/
+    public static void removeAll(final HBaseClientService hbaseService, final String tableName) throws IOException {
+
+        final List<Column> columnsList = new ArrayList<>(0);
+        final String filterExpression = "";
+        final long minTime = 0;
+        final HBaseDeleteRowHandler handler = new HBaseDeleteRowHandler(hbaseService, tableName);
+
+        hbaseService.scan(tableName, columnsList, filterExpression, minTime, handler);
+        if (handler.ioException != null) throw handler.ioException;
+    }
+
+    /**************************************************************
+     * truncate
+     **************************************************************/
+    public static void truncate(final Connection connection, final String tableName) throws IOException {
+        Admin admin = connection.getAdmin();
+        TableName hbaseTableName = TableName.valueOf(tableName);
+        admin.disableTable(hbaseTableName);
+        admin.truncateTable(hbaseTableName, false);
+    }
+
+    /**************************************************************
+     * createConnection
+     **************************************************************/
+    public static Connection createConnection(String configFiles,
+                                              String zkQuorum, String zkPort, String zkZNodeParent,
+                                              String hbaseClientRetries, Map<String, String> otherProperties ) throws IOException {
+
+        final Configuration hbaseConfig = HBaseUtils.getConfigurationFromFiles(configFiles);
+
+        // Override with any properties that are provided.
+        if (zkQuorum != null && !zkQuorum.isEmpty()) {
+            hbaseConfig.set(HBASE_CONF_ZK_QUORUM, zkQuorum);
+        }
+        if (zkPort != null && !zkPort.isEmpty()) {
+            hbaseConfig.set(HBASE_CONF_ZK_PORT, zkPort);
+        }
+        if (zkZNodeParent != null && !zkZNodeParent.isEmpty()) {
+            hbaseConfig.set(HBASE_CONF_ZNODE_PARENT, zkZNodeParent);
+        }
+        if (hbaseClientRetries != null && !hbaseClientRetries.isEmpty()) {
+            hbaseConfig.set(HBASE_CONF_CLIENT_RETRIES, hbaseClientRetries);
+        }
+
+        // Add (or override) any other properties given to the HBase configuration.
+        for (String key : otherProperties.keySet()) {
+            hbaseConfig.set(key, otherProperties.get(key));
+        }
+
+        return ConnectionFactory.createConnection(hbaseConfig);
+
+    }
+
+    /**************************************************************
+     * getConfigurationFromFiles
+     **************************************************************/
+    public static Configuration getConfigurationFromFiles(final String configFiles) {
+        final Configuration hbaseConfig = HBaseConfiguration.create();
+        if (StringUtils.isNotBlank(configFiles)) {
+            for (final String configFile : configFiles.split(",")) {
+                hbaseConfig.addResource(new Path(configFile.trim()));
+            }
+        }
+        return hbaseConfig;
     }
 }

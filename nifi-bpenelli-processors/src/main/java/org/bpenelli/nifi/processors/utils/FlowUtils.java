@@ -31,6 +31,8 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.sql.Clob;
 import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -138,6 +140,21 @@ public final class FlowUtils {
             result = col != null ? col.toString() : defaultValue;
         }
         return result;
+    }
+
+    /**************************************************************
+     * getDynamicPropertyMap
+     **************************************************************/
+    public static Map<String, String> getDynamicPropertyMap(ProcessContext context, FlowFile flowFile) {
+        Map<String, String> retVal = new HashMap<>();
+        for (PropertyDescriptor propDesc : context.getProperties().keySet()) {
+            if (propDesc.isDynamic()) {
+                PropertyValue propVal = context.getProperty(propDesc);
+                final String value = propVal.evaluateAttributeExpressions(flowFile).getValue();
+                retVal.put(propDesc.getName(), value);
+            }
+        }
+        return retVal;
     }
 
     /**************************************************************
