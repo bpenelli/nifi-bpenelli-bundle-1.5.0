@@ -39,7 +39,10 @@ import java.util.*;
 @Tags({"invoke", "sql", "statement", "DML", "database", "bpenelli"})
 @CapabilityDescription("Invokes one or more SQL statements against a database connection.")
 @SeeAlso()
-@WritesAttributes({@WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship.")})
+@WritesAttributes({
+        @WritesAttribute(attribute = "sql.failure.reason", description = "The reason the FlowFile was sent to failue relationship."),
+        @WritesAttribute(attribute = "sql.failure.sql", description = "The SQL that caused the FlowFile to be sent to failue relationship.")
+})
 public class InvokeSQL extends AbstractProcessor {
 
     public static final Relationship REL_SUCCESS = new Relationship.Builder()
@@ -131,6 +134,8 @@ public class InvokeSQL extends AbstractProcessor {
 
     }
 
+    private String currentStatement;
+
     /**************************************************************
      * onTrigger
      **************************************************************/
@@ -156,6 +161,7 @@ public class InvokeSQL extends AbstractProcessor {
         try {
             for (String statement : statements) {
                 if (statement == null || statement.length() == 0) continue;
+                this.currentStatement = statement;
                 sql.execute(statement);
             }
             session.transfer(flowFile, REL_SUCCESS);
@@ -164,6 +170,9 @@ public class InvokeSQL extends AbstractProcessor {
                 throw new ProcessException(e);
             } else {
                 flowFile = session.putAttribute(flowFile, "sql.failure.reason", e.getMessage());
+                if (this.currentStatement != null) {
+                    flowFile = session.putAttribute(flowFile, "sql.failure.sql", this.currentStatement);
+                }
                 session.transfer(flowFile, REL_FAILURE);
             }
         } finally {
