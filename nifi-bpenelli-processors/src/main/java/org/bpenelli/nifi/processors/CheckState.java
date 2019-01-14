@@ -90,6 +90,13 @@ public class CheckState extends AbstractProcessor {
             .identifiesControllerService(DistributedMapCacheClient.class)
             .addValidator(Validator.VALID)
             .build();
+    public static final PropertyDescriptor PREV_STATE_ATTR = new PropertyDescriptor.Builder()
+            .name("Previous State Attribute Name")
+            .description("The name of an attribute to output the previous state value to.")
+            .required(false)
+            .expressionLanguageSupported(true)
+            .addValidator(Validator.VALID)
+            .build();
     static final String LESS_THAN = "Less Than";
     static final String GREATER_THAN = "Greater Than";
     static final String EQUAL_TO = "Equal To";
@@ -117,6 +124,7 @@ public class CheckState extends AbstractProcessor {
         descriptors.add(STATE_KEY);
         descriptors.add(COMPARE_VAL);
         descriptors.add(REPLACE_WHEN);
+        descriptors.add(PREV_STATE_ATTR);
         descriptors.add(CACHE_SVC);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<>();
@@ -163,6 +171,7 @@ public class CheckState extends AbstractProcessor {
 
         final String stateKey = context.getProperty(STATE_KEY).evaluateAttributeExpressions(flowFile).getValue();
         String compareValue = context.getProperty(COMPARE_VAL).evaluateAttributeExpressions(flowFile).getValue();
+        String prevStateAttr = context.getProperty(PREV_STATE_ATTR).evaluateAttributeExpressions(flowFile).getValue();
         final String replaceWhen = context.getProperty(REPLACE_WHEN).getValue();
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
 
@@ -185,6 +194,11 @@ public class CheckState extends AbstractProcessor {
                 cacheService.put(stateKey, compareValue, FlowUtils.stringSerializer, FlowUtils.stringSerializer);
                 session.transfer(flowFile, REL_INITIAL);
                 return;
+            }
+
+            // Add previous state value to the requested attribute.
+            if (prevStateAttr != null && !prevStateAttr.isEmpty()) {
+                flowFile = session.putAttribute(flowFile, prevStateAttr, stateValue);
             }
 
             // Make comparison.
