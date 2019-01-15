@@ -45,11 +45,6 @@ public class HBaseSequence extends AbstractProcessor {
             .description("Any FlowFile that is successfully processed")
             .build();
 
-    public static final Relationship REL_FAILURE = new Relationship.Builder()
-            .name("failure")
-            .description("Any FlowFile with an IO exception")
-            .build();
-
     public static final PropertyDescriptor TABLE_NAME = new PropertyDescriptor.Builder()
             .name("Table Name")
             .description("The name of the HBase table to use to maintain the sequence.")
@@ -102,6 +97,15 @@ public class HBaseSequence extends AbstractProcessor {
             .addValidator(StandardValidators.LONG_VALIDATOR)
             .build();
 
+    public static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder()
+            .name("Batch Size")
+            .description("The number of flow files to process at a time.")
+            .required(true)
+            .expressionLanguageSupported(true)
+            .defaultValue("1")
+            .addValidator(StandardValidators.INTEGER_VALIDATOR)
+            .build();
+
     @SuppressWarnings("WeakerAccess")
     public static final PropertyDescriptor OUT_ATTR = new PropertyDescriptor.Builder()
             .name("Output Attribute")
@@ -134,12 +138,12 @@ public class HBaseSequence extends AbstractProcessor {
         descriptors.add(COL_QUALIFIER);
         descriptors.add(START_NO);
         descriptors.add(INC_BY);
+        descriptors.add(BATCH_SIZE);
         descriptors.add(OUT_ATTR);
         descriptors.add(HBASE_CLIENT_SERVICE);
         this.descriptors = Collections.unmodifiableList(descriptors);
         final Set<Relationship> relationships = new HashSet<>();
         relationships.add(REL_SUCCESS);
-        relationships.add(REL_FAILURE);
         this.relationships = Collections.unmodifiableSet(relationships);
     }
 
@@ -173,46 +177,110 @@ public class HBaseSequence extends AbstractProcessor {
     @Override
     public void onTrigger(final ProcessContext context, final ProcessSession session) throws ProcessException {
 
-        FlowFile flowFile = session.get();
-        if (flowFile == null) return;
+        List<FlowFile> flowFiles = session.get(context.getProperty(BATCH_SIZE).asInteger());
+        if (flowFiles == null || flowFiles.size() == 0) {
+            return;
+        }
 
-        // Get property values.
-        final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        final String seqName = context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue();
-        final String colFam = context.getProperty(COL_FAMILY).evaluateAttributeExpressions(flowFile).getValue();
-        final String colQual = context.getProperty(COL_QUALIFIER).evaluateAttributeExpressions(flowFile).getValue();
-        final String startNo = context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue();
-        final long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
-        final String outAttr = context.getProperty(OUT_ATTR).evaluateAttributeExpressions(flowFile).getValue();
         final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
-        boolean stillTrying = true;
+        boolean quickProcess = true;
+        FlowFile lastFlowFile = null;
+
+        // Check if we can do a quick assign process.
+        for (FlowFile flowFile : flowFiles) {
+            // Get property values.
+            if (lastFlowFile != null) {
+                if (!context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(TABLE_NAME).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+                if (!context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(SEQ_NAME).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+                if (!context.getProperty(COL_FAMILY).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(COL_FAMILY).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+                if (!context.getProperty(COL_QUALIFIER).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(COL_QUALIFIER).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+                if (!context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(START_NO).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+                if (!context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).getValue()
+                        .equals(context.getProperty(INC_BY).evaluateAttributeExpressions(lastFlowFile).getValue())) {
+                    quickProcess = false;
+                    break;
+                }
+            }
+            lastFlowFile = flowFile;
+        }
+
+        String currentValue = null;
+        String newValue = null;
+        String firstValue = null;
 
         try {
-            while (stillTrying) {
-                // Read the current sequence value if any.
-                final String currentValue = HBaseUtils.get(hbaseService, tableName, colFam, colQual, seqName);
+            // Process the batch.
+            for (FlowFile flowFile : flowFiles) {
+
+                boolean isLast = flowFiles.get(flowFiles.size() - 1).equals(flowFile);
+
+                // Get property values.
+                final String tableName = context.getProperty(TABLE_NAME).evaluateAttributeExpressions(flowFile).getValue();
+                final String seqName = context.getProperty(SEQ_NAME).evaluateAttributeExpressions(flowFile).getValue();
+                final String colFam = context.getProperty(COL_FAMILY).evaluateAttributeExpressions(flowFile).getValue();
+                final String colQual = context.getProperty(COL_QUALIFIER).evaluateAttributeExpressions(flowFile).getValue();
+                final String startNo = context.getProperty(START_NO).evaluateAttributeExpressions(flowFile).getValue();
+                final long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
+                final String outAttr = context.getProperty(OUT_ATTR).evaluateAttributeExpressions(flowFile).getValue();
+
+                // Get the current value if any.
+                if (!quickProcess || currentValue == null) {
+                    currentValue = HBaseUtils.get(hbaseService, tableName, colFam, colQual, seqName);
+                } else {
+                    currentValue = newValue;
+                }
+
                 if (currentValue != null) {
+                    if (firstValue == null) firstValue = currentValue;
                     // Increment the value by the amount of the supplied increment.
-                    final String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
-                    // Only save if the value hasn't changed since it was read.
-                    if (HBaseUtils.checkAndPut(hbaseService, tableName, colFam, colQual, seqName, newValue, currentValue)) {
-                        flowFile = session.putAttribute(flowFile, outAttr, newValue);
-                        session.transfer(flowFile, REL_SUCCESS);
-                        stillTrying = false;
+                    newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
+                    flowFile = session.putAttribute(flowFile, outAttr, newValue);
+                    session.transfer(flowFile, REL_SUCCESS);
+                    if (isLast || !quickProcess) {
+                        // Only save if the value hasn't changed since it was read.
+                        if (!HBaseUtils.checkAndPut(hbaseService, tableName, colFam, colQual, seqName, newValue, firstValue)) {
+                            session.rollback();
+                            break;
+                        }
                     }
                 } else {
-                    // The sequence doesn't exist, so add it with the supplied starting value.
-                    if (HBaseUtils.putIfAbsent(hbaseService, tableName, colFam, colQual, seqName, startNo,
-                            FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
-                        flowFile = session.putAttribute(flowFile, outAttr, startNo);
-                        session.transfer(flowFile, REL_SUCCESS);
-                        stillTrying = false;
+                    newValue = startNo;
+                    firstValue = startNo;
+                    flowFile = session.putAttribute(flowFile, outAttr, newValue);
+                    session.transfer(flowFile, REL_SUCCESS);
+                    if (isLast || !quickProcess) {
+                        // The sequence doesn't exist, so add it with the supplied starting value.
+                        if (!HBaseUtils.putIfAbsent(hbaseService, tableName, colFam, colQual, seqName, newValue,
+                                FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
+                            session.rollback();
+                            break;
+                        }
                     }
                 }
             }
         } catch (IOException e) {
-            session.transfer(flowFile, REL_FAILURE);
-            getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
+            session.rollback();
+            getLogger().error("Unable to process HBaseSequence due to {}", new Object[]{e});
         }
     }
 }
