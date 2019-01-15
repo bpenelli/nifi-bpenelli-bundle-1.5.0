@@ -185,32 +185,29 @@ public class HBaseSequence extends AbstractProcessor {
         final long incBy = context.getProperty(INC_BY).evaluateAttributeExpressions(flowFile).asLong();
         final String outAttr = context.getProperty(OUT_ATTR).evaluateAttributeExpressions(flowFile).getValue();
         final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
+        boolean stillTrying = true;
 
         try {
-            // Read the current sequence value if any.
-            final String currentValue = HBaseUtils.get(hbaseService, tableName, colFam, colQual, seqName);
-
-            if (currentValue != null) {
-                // Increment the value by the amount of the supplied increment.
-                final String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
-                // Only save if the value hasn't changed since it was read.
-                if (HBaseUtils.checkAndPut(hbaseService, tableName, colFam, colQual, seqName, newValue, currentValue)) {
-                    flowFile = session.putAttribute(flowFile, outAttr, newValue);
-                    session.transfer(flowFile, REL_SUCCESS);
-                    session.commit();
+            while (stillTrying) {
+                // Read the current sequence value if any.
+                final String currentValue = HBaseUtils.get(hbaseService, tableName, colFam, colQual, seqName);
+                if (currentValue != null) {
+                    // Increment the value by the amount of the supplied increment.
+                    final String newValue = Objects.toString((Long.parseLong(currentValue) + incBy));
+                    // Only save if the value hasn't changed since it was read.
+                    if (HBaseUtils.checkAndPut(hbaseService, tableName, colFam, colQual, seqName, newValue, currentValue)) {
+                        flowFile = session.putAttribute(flowFile, outAttr, newValue);
+                        session.transfer(flowFile, REL_SUCCESS);
+                        stillTrying = false;
+                    }
                 } else {
-                    // Rolling back will put the FlowFile back on the queue to be tried again.
-                    session.rollback();
-                }
-            } else {
-                // The sequence doesn't exist, so add it with the supplied starting value.
-                if (HBaseUtils.putIfAbsent(hbaseService, tableName, colFam, colQual, seqName, startNo,
-                        FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
-                    flowFile = session.putAttribute(flowFile, outAttr, startNo);
-                    session.transfer(flowFile, REL_SUCCESS);
-                } else {
-                    // Rolling back will put the FlowFile back on the queue to be tried again.
-                    session.rollback();
+                    // The sequence doesn't exist, so add it with the supplied starting value.
+                    if (HBaseUtils.putIfAbsent(hbaseService, tableName, colFam, colQual, seqName, startNo,
+                            FlowUtils.stringSerializer, FlowUtils.stringSerializer)) {
+                        flowFile = session.putAttribute(flowFile, outAttr, startNo);
+                        session.transfer(flowFile, REL_SUCCESS);
+                        stillTrying = false;
+                    }
                 }
             }
         } catch (IOException e) {
