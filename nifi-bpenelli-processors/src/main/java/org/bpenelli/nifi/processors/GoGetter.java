@@ -37,24 +37,26 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.hbase.HBaseClientService;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.bpenelli.nifi.processors.utils.FlowUtils;
-import org.bpenelli.nifi.processors.utils.HBaseUtils;
+import org.bpenelli.nifi.processors.utils.*;
 
 import java.sql.Connection;
 import java.util.*;
+import java.util.concurrent.*;
 
 import static groovy.json.JsonParserType.LAX;
 
 @SuppressWarnings({"WeakerAccess", "EmptyMethod", "unused"})
 @Tags({"gogetter", "get", "json", "cache", "attribute", "sql", "hbase", "bpenelli"})
-@CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's content based on a GOG configuration. " +
-        "Values can be optionally retrieved from cache using a given key, or a database using given SQL.")
+@CapabilityDescription("Retrieves values and outputs FlowFile attributes and/or a JSON object in the FlowFile's " +
+        "content based on a GOG configuration. Values can be optionally retrieved from cache using a given key, " +
+        "and/or a database using given SQL, and/or a HBase table scan using a given filter expression.")
 @SeeAlso()
 @ReadsAttributes({@ReadsAttribute(attribute = "")})
 @WritesAttributes({
         @WritesAttribute(attribute = "gog.failure.reason", description = "The reason the FlowFile was sent to failure relationship."),
         @WritesAttribute(attribute = "gog.failure.sql", description = "The SQL assigned when the FlowFile was sent to failure relationship."),
-        @WritesAttribute(attribute = "gog.failure.hbase.filter", description = "The HBase filter expression assigned when the FlowFile was sent to failure relationship.")
+        @WritesAttribute(attribute = "gog.failure.hbase.filter", description = "The HBase filter expression assigned when the FlowFile was sent to failure relationship."),
+        @WritesAttribute(attribute = "gog.failure.hbase.table", description = "The HBase table assigned when the FlowFile was sent to failure relationship.")
 })
 public class GoGetter extends AbstractProcessor {
 
@@ -199,9 +201,7 @@ public class GoGetter extends AbstractProcessor {
             session.transfer(flowFile, REL_SUCCESS);
 
         } catch (Exception e) {
-            String msg = e.getMessage();
-            if (msg == null) msg = e.toString();
-            flowFile = session.putAttribute(flowFile, "gog.failure.reason", msg);
+            flowFile = session.putAttribute(flowFile, "gog.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
             getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});
         }
@@ -209,12 +209,17 @@ public class GoGetter extends AbstractProcessor {
 
     private static class Extractor {
 
+        /**************************************************************
+         * extract
+         **************************************************************/
         @SuppressWarnings({"unchecked"})
         public static void extract(Map<String, Object> gogMap, String gogKey, ProcessSession session,
                                    ProcessContext context, FlowFile flowFile, DistributedMapCacheClient cacheService,
                                    DBCPService dbcpService, HBaseClientService hbaseService) throws Exception {
 
             final Map<String, Object> valueMap = new TreeMap<>();
+            ExecutorService executor = Executors.newWorkStealingPool();
+            List<Callable<GoGetterCallResult>> goGetterCalls = new ArrayList<>();
 
             for (final String key : gogMap.keySet()) {
 
@@ -272,39 +277,25 @@ public class GoGetter extends AbstractProcessor {
                 switch (valType) {
                     case "CACHE_KEY":
                     case "CACHE":
-                        // Get the value from a cache source.
-                        result = cacheService.get(result, FlowUtils.stringSerializer, FlowUtils.stringDeserializer);
-                        if (result == null || result.isEmpty()) {
-                            valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-                            continue;
-                        }
-                        break;
+                        // Get the value from a DistributedMapCacheClient source asynchronously.
+                        GoGetterCacheCallable callable = new GoGetterCacheCallable(key, defaultValue, toType, cacheService, result);
+                        goGetterCalls.add(callable);
+                        continue;
                     case "HBASE_FILTER":
                     case "HBASE_SCAN":
                     case "HBASE":
-                        // Get the value from a HBase source.
+                        // Get the value from a HBaseClientService source asynchronously.
                         if (!propMap.containsKey("hbase-table")) {
                             throw new MissingArgumentException("hbase-table argument missing for " + key);
                         }
                         final String hbaseTable = propMap.get("hbase-table").toString();
-                        final String filterExpression = result;
-                        try {
-                            result = HBaseUtils.getLastCellValueByFilter(hbaseService, hbaseTable, filterExpression);
-                            if (result == null || result.isEmpty()) {
-                                valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
-                                continue;
-                            }
-                        } catch (Exception e) {
-                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.filter", filterExpression);
-                            //noinspection UnusedAssignment
-                            flowFile = session.putAttribute(flowFile, "gog.failure.hbase.table", hbaseTable);
-                            throw e;
-                        }
-                        break;
+                        GoGetterHBaseCallable getHbase = new GoGetterHBaseCallable(key, defaultValue, toType, hbaseService, hbaseTable, result);
+                        goGetterCalls.add(getHbase);
+                        continue;
                     case "SQL":
                         Sql sql = null;
                         final String sqlText = result;
-                        // Get the value from a SQL source.
+                        // Get the value from a DBCPService source.
                         try {
                             Connection conn = dbcpService.getConnection();
                             sql = new Sql(conn);
@@ -337,13 +328,40 @@ public class GoGetter extends AbstractProcessor {
                 valueMap.put(key, FlowUtils.convertString(result, toType));
             }
 
+            // Invoke and gather the results of the GoGetter async calls.
+            try {
+                List<Future<GoGetterCallResult>> futureList = executor.invokeAll(goGetterCalls);
+                for (Future<GoGetterCallResult> future : futureList) {
+                    GoGetterCallResult callResult = future.get();
+                    if (callResult.result == null || callResult.result.isEmpty()) {
+                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.defaultValue,
+                                callResult.toType));
+                    } else {
+                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.result,
+                                callResult.toType));
+                    }
+                }
+            }
+            catch (ExecutionException e) {
+                if (e.getCause() instanceof GoGetterCallException) {
+                    GoGetterCallException ce = (GoGetterCallException) e.getCause();
+                    for (String attName : ce.failureAttributes.keySet()) {
+                        flowFile = session.putAttribute(flowFile, attName, ce.failureAttributes.get(attName));
+                    }
+                    throw ce.originalException;
+                }
+            }
+
+            // Shutdown the executor service.
+            executor.shutdownNow();
+
+            // Output the extracted results.
             if (Objects.equals(gogKey, "extract-to-json")) {
                 // Build a JSON object for these results and put it in the FlowFile's content.
                 final JsonBuilder builder = new JsonBuilder();
                 builder.call(valueMap);
                 FlowUtils.writeContent(session, flowFile, builder);
             }
-
             if (Objects.equals(gogKey, "extract-to-attributes")) {
                 // Add FlowFile attributes for these results.
                 for (final String key : valueMap.keySet()) {
@@ -351,6 +369,5 @@ public class GoGetter extends AbstractProcessor {
                 }
             }
         }
-
     }
 }

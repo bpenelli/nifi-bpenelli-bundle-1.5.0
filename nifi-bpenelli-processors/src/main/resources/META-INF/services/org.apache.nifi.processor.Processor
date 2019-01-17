@@ -33,4 +33,3 @@ org.bpenelli.nifi.processors.GetSQLScalar
 org.bpenelli.nifi.processors.CheckState
 org.bpenelli.nifi.processors.UpdateFlowFile
 org.bpenelli.nifi.processors.TruncateHBase
-org.bpenelli.nifi.processors.GoGetterAsync
