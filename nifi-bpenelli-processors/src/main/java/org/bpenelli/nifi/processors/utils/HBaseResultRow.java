@@ -20,6 +20,8 @@ import java.util.ArrayList;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultRow {
+
+    // fields
     public final ArrayList<HBaseResultCell> cells = new ArrayList<>();
     public String rowKey;
     public byte[] rowKeyBytes;

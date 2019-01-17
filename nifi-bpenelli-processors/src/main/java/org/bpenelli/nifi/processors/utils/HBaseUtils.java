@@ -39,9 +39,13 @@ import java.util.Map;
 @SuppressWarnings({"WeakerAccess", "unused", "SpellCheckingInspection"})
 public class HBaseUtils {
 
+    /**************************************************************
+     * Constructor
+     **************************************************************/
     private HBaseUtils() {
     }
 
+    // constants
     public static final String HBASE_CONF_ZK_QUORUM = "hbase.zookeeper.quorum";
     public static final String HBASE_CONF_ZK_PORT = "hbase.zookeeper.property.clientPort";
     public static final String HBASE_CONF_ZNODE_PARENT = "zookeeper.znode.parent";
@@ -374,7 +378,6 @@ public class HBaseUtils {
         }
 
         return ConnectionFactory.createConnection(hbaseConfig);
-
     }
 
     /**************************************************************

@@ -18,6 +18,8 @@ package org.bpenelli.nifi.processors.utils;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultCell {
+
+    // fields
     public String family;
     public byte[] familyBytes;
     public String qualifier;

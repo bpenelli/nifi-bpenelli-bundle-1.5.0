@@ -25,10 +25,14 @@ import java.util.UUID;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResults {
+
+    // constants
     public static final String FMT_TBL_FAM_QUAL = "tablename.family.qualifier";
     public static final String FMT_TBL_QUAL = "tablename.qualifier";
     public static final String FMT_FAM_QUAL = "family.qualifier";
     public static final String FMT_QUAL = "qualifier";
+
+    // fields
     public final ArrayList<HBaseResultRow> rows = new ArrayList<>();
     public String rowKeyName = "row_key";
     public String tableName = null;

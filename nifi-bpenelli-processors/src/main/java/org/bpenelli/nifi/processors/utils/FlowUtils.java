@@ -38,6 +38,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class FlowUtils {
 
+    /**************************************************************
+     * Constructor
+     **************************************************************/
     private FlowUtils() {
     }
 
@@ -45,6 +48,7 @@ public final class FlowUtils {
      * stringSerializer
      **************************************************************/
     public final static Serializer<String> stringSerializer = (stringValue, out) -> out.write(stringValue.getBytes(StandardCharsets.UTF_8));
+
     /**************************************************************
      * stringDeserializer
      **************************************************************/

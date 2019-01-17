@@ -26,15 +26,22 @@ import java.io.IOException;
 
 class HBaseDeleteRowHandler implements ResultHandler {
 
+    // fields
     private final HBaseClientService hbaseService;
     private final String tablename;
     public IOException ioException;
 
+    /**************************************************************
+     * Constructor
+     **************************************************************/
     public HBaseDeleteRowHandler(HBaseClientService hbaseService, String tablename) {
         this.hbaseService = hbaseService;
         this.tablename = tablename;
     }
 
+    /**************************************************************
+     * handle
+     **************************************************************/
     @Override
     public void handle(byte[] resultRow, ResultCell[] resultCells) {
         try {

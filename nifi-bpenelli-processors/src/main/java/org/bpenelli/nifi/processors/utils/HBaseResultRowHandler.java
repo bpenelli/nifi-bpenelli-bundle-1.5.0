@@ -23,9 +23,14 @@ import java.util.Arrays;
 
 @SuppressWarnings({"WeakerAccess", "unused"})
 public final class HBaseResultRowHandler implements ResultHandler {
+
+    // fields
     private final HBaseResults results = new HBaseResults();
     private int rowCount = 0;
 
+    /**************************************************************
+     * handle
+     **************************************************************/
     @Override
     public void handle(byte[] resultRow, ResultCell[] resultCells) {
         rowCount += 1;
@@ -42,10 +47,16 @@ public final class HBaseResultRowHandler implements ResultHandler {
         results.rows.add(row);
     }
 
+    /**************************************************************
+     * getRowCount
+     **************************************************************/
     public int getRowCount() {
         return rowCount;
     }
 
+    /**************************************************************
+     * getResults
+     **************************************************************/
     public HBaseResults getResults() {
         return results;
     }
