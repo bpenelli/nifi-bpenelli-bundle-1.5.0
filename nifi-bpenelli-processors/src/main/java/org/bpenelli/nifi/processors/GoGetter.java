@@ -33,7 +33,6 @@ import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.hbase.HBaseClientService;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
-import org.apache.nifi.processor.util.StandardValidators;
 import org.bpenelli.nifi.processors.utils.FlowUtils;
 import org.bpenelli.nifi.processors.utils.GoGetterExtractor;
 
@@ -88,17 +87,6 @@ public class GoGetter extends AbstractProcessor {
             .addValidator(Validator.VALID)
             .build();
 
-    public static final PropertyDescriptor PARALLELISM = new PropertyDescriptor.Builder()
-            .name("Parallelism")
-            .description("The parallelism level corresponds to the maximum number of threads actively engaged in, " +
-                    "or available to engage in, lookup task processing. The actual number of threads may grow and " +
-                    "shrink dynamically.")
-            .required(true)
-            .defaultValue("1")
-            .expressionLanguageSupported(true)
-            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
-            .build();
-
     public static final PropertyDescriptor CACHE_SVC = new PropertyDescriptor.Builder()
             .name("Distributed Map Cache Service")
             .description("The Controller Service containing the cached key map entries to retrieve.")
@@ -133,7 +121,6 @@ public class GoGetter extends AbstractProcessor {
         final List<PropertyDescriptor> descriptors = new ArrayList<>();
         descriptors.add(GOG_TEXT);
         descriptors.add(GOG_ATTRIBUTE);
-        descriptors.add(PARALLELISM);
         descriptors.add(CACHE_SVC);
         descriptors.add(DBCP_SERVICE);
         descriptors.add(HBASE_CLIENT_SERVICE);
@@ -179,7 +166,6 @@ public class GoGetter extends AbstractProcessor {
 
         final String gogAtt = context.getProperty(GOG_ATTRIBUTE).evaluateAttributeExpressions(flowFile).getValue();
         final String gogText = context.getProperty(GOG_TEXT).evaluateAttributeExpressions(flowFile).getValue();
-        final int parallelism = context.getProperty(PARALLELISM).evaluateAttributeExpressions(flowFile).asInteger();
         final DistributedMapCacheClient cacheService = context.getProperty(CACHE_SVC).asControllerService(DistributedMapCacheClient.class);
         final DBCPService dbcpService = context.getProperty(DBCP_SERVICE).asControllerService(DBCPService.class);
         final HBaseClientService hbaseService = context.getProperty(HBASE_CLIENT_SERVICE).asControllerService(HBaseClientService.class);
@@ -197,25 +183,21 @@ public class GoGetter extends AbstractProcessor {
 
         // Process GOG.
         try {
-
             final Map<String, Object> gog = (Map<String, Object>) new JsonSlurper().setType(LAX).parseText(gogConfig);
-
             // Process extract-to-attributes.
             if (gog.containsKey("extract-to-attributes")) {
                 GoGetterExtractor.extract((Map<String, Object>) gog.get("extract-to-attributes"), "extract-to-attributes", session,
-                        context, flowFile, parallelism, cacheService, dbcpService, hbaseService);
+                        context, flowFile, cacheService, dbcpService, hbaseService);
             }
-
             // Process extract-to-json.
             if (gog.containsKey("extract-to-json")) {
                 GoGetterExtractor.extract((Map<String, Object>) gog.get("extract-to-json"), "extract-to-json", session,
-                        context, flowFile, parallelism, cacheService, dbcpService, hbaseService);
+                        context, flowFile, cacheService, dbcpService, hbaseService);
             }
-
             // Transfer the FlowFile to success.
             session.transfer(flowFile, REL_SUCCESS);
-
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             flowFile = session.putAttribute(flowFile, "gog.failure.reason", e.getMessage());
             session.transfer(flowFile, REL_FAILURE);
             getLogger().error("Unable to process {} due to {}", new Object[]{flowFile, e});

@@ -22,12 +22,11 @@ public class GoGetterExtractor {
      **************************************************************/
     @SuppressWarnings({"unchecked"})
     public static void extract(Map<String, Object> gogMap, String gogKey, ProcessSession session,
-                               ProcessContext context, FlowFile flowFile, int parallelism,
+                               ProcessContext context, FlowFile flowFile,
                                DistributedMapCacheClient cacheService, DBCPService dbcpService,
                                HBaseClientService hbaseService) throws Exception {
 
         final Map<String, Object> valueMap = new TreeMap<>();
-        ExecutorService executor = Executors.newWorkStealingPool(parallelism);
         List<Callable<GoGetterCallResult>> goGetterCalls = new ArrayList<>();
 
         for (final String key : gogMap.keySet()) {
@@ -122,7 +121,8 @@ public class GoGetterExtractor {
                             valueMap.put(key, FlowUtils.convertString(defaultValue, toType));
                             continue;
                         }
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e) {
                         //noinspection UnusedAssignment
                         flowFile = session.putAttribute(flowFile, "gog.failure.sql", sqlText);
                         throw e;
@@ -139,32 +139,34 @@ public class GoGetterExtractor {
             valueMap.put(key, FlowUtils.convertString(result, toType));
         }
 
-        // Invoke and gather the results of the GoGetter async calls.
-        try {
-            List<Future<GoGetterCallResult>> futureList = executor.invokeAll(goGetterCalls);
-            for (Future<GoGetterCallResult> future : futureList) {
-                GoGetterCallResult callResult = future.get();
-                if (callResult.result == null || callResult.result.isEmpty()) {
-                    valueMap.put(callResult.key, FlowUtils.convertString(callResult.defaultValue,
-                            callResult.toType));
-                } else {
-                    valueMap.put(callResult.key, FlowUtils.convertString(callResult.result,
-                            callResult.toType));
+        if (goGetterCalls.size() > 0) {
+            // Invoke and gather the results of the GoGetter async calls.
+            ExecutorService executor = Executors.newWorkStealingPool();
+            try {
+                List<Future<GoGetterCallResult>> futureList = executor.invokeAll(goGetterCalls);
+                for (Future<GoGetterCallResult> future : futureList) {
+                    GoGetterCallResult callResult = future.get();
+                    if (callResult.result == null || callResult.result.isEmpty()) {
+                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.defaultValue,
+                                callResult.toType));
+                    } else {
+                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.result,
+                                callResult.toType));
+                    }
                 }
+            } catch (ExecutionException e) {
+                if (e.getCause() instanceof GoGetterCallException) {
+                    GoGetterCallException ce = (GoGetterCallException) e.getCause();
+                    for (String attName : ce.failureAttributes.keySet()) {
+                        flowFile = session.putAttribute(flowFile, attName, ce.failureAttributes.get(attName));
+                    }
+                    throw ce.originalException;
+                }
+            } finally {
+                // Shutdown the executor service.
+                executor.shutdownNow();
             }
         }
-        catch (ExecutionException e) {
-            if (e.getCause() instanceof GoGetterCallException) {
-                GoGetterCallException ce = (GoGetterCallException) e.getCause();
-                for (String attName : ce.failureAttributes.keySet()) {
-                    flowFile = session.putAttribute(flowFile, attName, ce.failureAttributes.get(attName));
-                }
-                throw ce.originalException;
-            }
-        }
-
-        // Shutdown the executor service.
-        executor.shutdownNow();
 
         // Output the extracted results.
         if (Objects.equals(gogKey, "extract-to-json")) {
