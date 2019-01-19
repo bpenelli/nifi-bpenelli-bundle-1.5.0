@@ -142,16 +142,22 @@ public class GoGetterExtractor {
         if (goGetterCalls.size() > 0) {
             // Invoke and gather the results of the GoGetter async calls.
             ExecutorService executor = Executors.newWorkStealingPool();
+            int runningCalls = goGetterCalls.size();
             try {
                 List<Future<GoGetterCallResult>> futureList = executor.invokeAll(goGetterCalls);
-                for (Future<GoGetterCallResult> future : futureList) {
-                    GoGetterCallResult callResult = future.get();
-                    if (callResult.result == null || callResult.result.isEmpty()) {
-                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.defaultValue,
-                                callResult.toType));
-                    } else {
-                        valueMap.put(callResult.key, FlowUtils.convertString(callResult.result,
-                                callResult.toType));
+                while (runningCalls > 0) {
+                    for (Future<GoGetterCallResult> future : futureList) {
+                        if (future.isDone()) {
+                            GoGetterCallResult callResult = future.get();
+                            if (callResult.result == null || callResult.result.isEmpty()) {
+                                valueMap.put(callResult.key, FlowUtils.convertString(callResult.defaultValue,
+                                        callResult.toType));
+                            } else {
+                                valueMap.put(callResult.key, FlowUtils.convertString(callResult.result,
+                                        callResult.toType));
+                            }
+                            runningCalls--;
+                        }
                     }
                 }
             } catch (ExecutionException e) {
