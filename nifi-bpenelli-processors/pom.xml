@@ -18,8 +18,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>org.bpenelli.nifi</groupId>
-        <artifactId>nifi-bpenelli</artifactId>
+        <groupId>org.apache.nifi</groupId>
+        <artifactId>nifi-bpenelli-bundle</artifactId>
         <version>1.5.0</version>
     </parent>
 
