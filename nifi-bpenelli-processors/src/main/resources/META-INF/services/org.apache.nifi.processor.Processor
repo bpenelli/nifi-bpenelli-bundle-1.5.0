@@ -12,24 +12,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-org.bpenelli.nifi.processors.ContentToAttribute
-org.bpenelli.nifi.processors.GoGetter
-org.bpenelli.nifi.processors.GoldenGateToSQL
-org.bpenelli.nifi.processors.GoldenGateMergeViews
-org.bpenelli.nifi.processors.Hold
-org.bpenelli.nifi.processors.Release
-org.bpenelli.nifi.processors.HBaseSequence
-org.bpenelli.nifi.processors.XMLToAttributes
-org.bpenelli.nifi.processors.ConvertJSONToCSV
-org.bpenelli.nifi.processors.InvokeSQL
-org.bpenelli.nifi.processors.GrabHDFS
-org.bpenelli.nifi.processors.SymbolsToJSON
-org.bpenelli.nifi.processors.GetSQL
-org.bpenelli.nifi.processors.SQLToCache
-org.bpenelli.nifi.processors.XMLValidator
-org.bpenelli.nifi.processors.EvaluateXML
-org.bpenelli.nifi.processors.ScanHBase
-org.bpenelli.nifi.processors.GetSQLScalar
-org.bpenelli.nifi.processors.CheckState
-org.bpenelli.nifi.processors.UpdateFlowFile
-org.bpenelli.nifi.processors.TruncateHBase
+org.apache.nifi.processors.bpenelli.ContentToAttribute
+org.apache.nifi.processors.bpenelli.GoGetter
+org.apache.nifi.processors.bpenelli.GoldenGateToSQL
+org.apache.nifi.processors.bpenelli.GoldenGateMergeViews
+org.apache.nifi.processors.bpenelli.Hold
+org.apache.nifi.processors.bpenelli.Release
+org.apache.nifi.processors.bpenelli.HBaseSequence
+org.apache.nifi.processors.bpenelli.XMLToAttributes
+org.apache.nifi.processors.bpenelli.ConvertJSONToCSV
+org.apache.nifi.processors.bpenelli.InvokeSQL
+org.apache.nifi.processors.bpenelli.GrabHDFS
+org.apache.nifi.processors.bpenelli.SymbolsToJSON
+org.apache.nifi.processors.bpenelli.GetSQL
+org.apache.nifi.processors.bpenelli.SQLToCache
+org.apache.nifi.processors.bpenelli.XMLValidator
+org.apache.nifi.processors.bpenelli.EvaluateXML
+org.apache.nifi.processors.bpenelli.ScanHBase
+org.apache.nifi.processors.bpenelli.GetSQLScalar
+org.apache.nifi.processors.bpenelli.CheckState
+org.apache.nifi.processors.bpenelli.UpdateFlowFile
+org.apache.nifi.processors.bpenelli.TruncateHBase
+org.apache.nifi.processors.bpenelli.JSONToAttributes
